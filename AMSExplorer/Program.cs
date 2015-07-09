@@ -1,20 +1,18 @@
-﻿
-//----------------------------------------------------------------------- 
-// <copyright file="Program.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -63,6 +61,29 @@ namespace AMSExplorer
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Mainform());
+        }
+
+        public static void dataGridViewV_Resize(object sender)
+        {
+            // let's resize the column name to fill the space
+            DataGridView grid = (DataGridView)sender;
+            int indexname = -1;
+            for (int i = 0; i < grid.Columns.Count; i++)
+            {
+                if (grid.Columns[i].HeaderText == "Name")
+                {
+                    indexname = i;
+                    break;
+                }
+            }
+
+            if (indexname != -1)
+            {
+                grid.Columns[indexname].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                int colw = grid.Columns[indexname].Width;
+                grid.Columns[indexname].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                grid.Columns[indexname].Width = colw;
+            }
         }
 
         public static CloudMediaContext ConnectAndGetNewContext(CredentialsEntry credentials)
@@ -155,13 +176,13 @@ namespace AMSExplorer
         {
             try
             {
-                CloudStorageAccount storageAccount = new CloudStorageAccount(new StorageCredentials(context.DefaultStorageAccount.Name, credentials.StorageKey), true);
+                CloudStorageAccount storageAccount = new CloudStorageAccount(new StorageCredentials(context.DefaultStorageAccount.Name, credentials.StorageKey), credentials.ReturnStorageSuffix(), true);
                 CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
                 return true;
             }
-            catch
+            catch (Exception e)
             {
-                MessageBox.Show(string.Format("There is a problem when connecting to the Azure storage account {0}.\r\nIs the storage key correct ?", context.DefaultStorageAccount.Name), "Storage Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(string.Format("There is a problem when connecting to the Azure storage account.\r\nIs the storage key correct ?\r\n{0}", e.Message), "Storage Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
         }
@@ -354,6 +375,41 @@ namespace AMSExplorer
 
         }
 
+
+        public static void CreateAndSendOutlookMail(string RecipientEmailAddress, string Subject, string Body)
+        {
+            // Let's create the email with Outlook
+            Outlook.Application outlookApp = new Outlook.Application();
+            Outlook.MailItem mailItem = (Outlook.MailItem)outlookApp.CreateItem(Outlook.OlItemType.olMailItem);
+
+            mailItem.To = RecipientEmailAddress;
+            mailItem.Subject = Subject;
+            mailItem.HTMLBody = "<FONT Face=\"Courier New\">";
+            mailItem.HTMLBody += Body.Replace(" ", "&nbsp;").Replace(Environment.NewLine, "<br />").ToString();
+            mailItem.Display(false);
+            mailItem.Send();
+        }
+
+        public static string ReturnNameForProtocol(StreamingProtocol protocol)
+        {
+            string name = "";
+            switch (protocol)
+            {
+                case StreamingProtocol.FragmentedMP4:
+                    name = "Fragmented MP4 (Smooth)";
+                    break;
+
+                case StreamingProtocol.RTMP:
+                    name = "RTMP";
+                    break;
+
+                case StreamingProtocol.RTPMPEG2TS:
+                    name = "RTP (MPEG-TS)";
+                    break;
+            }
+            return name;
+        }
+
     }
 
     public class Constants
@@ -364,9 +420,11 @@ namespace AMSExplorer
 
         public const string WindowsAzureMediaEncoder = "Windows Azure Media Encoder";
         public const string AzureMediaEncoder = "Azure Media Encoder";
+        public const string AzureMediaEncoderStandard = "Media Encoder Standard";
         public const string AzureMediaEncoderPremiumWorkflow = "Media Encoder Premium Workflow";
         public const string ZeniumEncoder = "Digital Rapids - Kayak Cloud Engine";
         public const string AzureMediaIndexer = "Azure Media Indexer";
+        public const string AzureMediaHyperlapse = "Azure Media Hyperlapse";
         public const string NameconvInputasset = "{Input Asset Name}";
         public const string NameconvUploadasset = "{File Name}";
         public const string NameconvWorkflow = "{Workflow}";
@@ -380,6 +438,8 @@ namespace AMSExplorer
         public const string NameconvProtocols = "{Protocols}";
         public const string NameconvContentKeyType = "{Content key type}";
         public const string NameconvManifestURL = "{manifest url}";
+        public const string NameconvToken = "{token}";
+        public const string NameconvAsset = "{Asset Name}";
 
         public const string endline = "\r\n";
 
@@ -390,12 +450,15 @@ namespace AMSExplorer
         public const string TabProcessors = "Processors"; // name of the Processors tab
         public const string TabOrigins = "Streaming endpoints"; // name of the Origins tab
         public const string TabStorage = "Storage"; // name of the Origins tab
+        public const string TabFilters = "Global filters"; // name of the filters tab
         public const string TabLog = "Log"; // name of the Jobs tab
 
-        public const string PathPremiumWorkflowFiles = @"\PremiumWorflowSamples\";
+        public const string PathPremiumWorkflowFiles = @"\PremiumWorkflowSamples\";
         public const string PathAMEFiles = @"\AMEPresetFiles\";
+        public const string PathAMEStdFiles = @"\AMEStandardPresetFiles\";
         public const string PathConfigFiles = @"\configurations\";
         public const string PathHelpFiles = @"\HelpFiles\";
+        public const string PathDefaultSlateJPG = @"\SlateJPG\";
 
         public const string PathLicense = @"\license\Azure Media Services Explorer.rtf";
 
@@ -404,12 +467,31 @@ namespace AMSExplorer
         public const string LocatorIdPrefix = "nb:lid:UUID:";
         public const string AssetIdPrefix = "nb:cid:UUID:";
         public const string ContentKeyIdPrefix = "nb:kid:UUID:";
+        public const string JobIdPrefix = "nb:jid:UUID:";
+        public const string ProgramIdPrefix = "nb:pgid:UUID:";
 
         public const string ProdAPIServer = "https://media.windows.net";
         public const string ProdACSBaseAddress = "https://wamsprodglobal001acs.accesscontrol.windows.net";
 
         public const string Bearer = "Bearer ";
         public const string strUnits = "{0} unit{1}";
+
+
+        public const string LinkMoreInfoAME = "http://azure.microsoft.com/en-us/documentation/articles/media-services-azure-media-encoder-formats/";
+        public const string LinkMorePresetsAME = "https://msdn.microsoft.com/library/azure/dn619392.aspx";
+        public const string LinkMoreAMEAdvanced = "http://azure.microsoft.com/blog/2014/08/21/advanced-encoding-features-in-azure-media-encoder/";
+        public const string LinkMoreInfoPremiumEncoder = "http://azure.microsoft.com/en-us/documentation/articles/media-services-encode-asset/#media_encoder_premium_wokrflow";
+        public const string LinkMoreInfoHyperlapse = "http://azure.microsoft.com/blog/2015/05/14/announcing-hyperlapse-for-azure-media-services/";
+        public const string LinkHowItWorksHyperlapse = "http://research.microsoft.com/en-us/um/redmond/projects/hyperlapse/";
+        public const string LinkHowIMoreInfoDynamicManifest = "http://azure.microsoft.com/blog/2015/05/28/dynamic-manifest/";
+
+        public const string AzureNotificationNameWatchFolder = "explorer-watch-folder";
+
+        public const long maxSlateJPGFileSize = 3 * 1024 * 1024; // Max 3 MB
+        public const int maxSlateJPGHorizontalResolution = 1920;
+        public const int maxSlateJPGVerticalResolution = 1080;
+        public const double SlateJPGAspectRatio = 16d / 9d;
+        public const string SlateJPGExtension = ".jpg";
     }
 
 
@@ -432,27 +514,51 @@ namespace AMSExplorer
 
         public void CreateOutlookMail()
         {
-            StringBuilder SB = GetStats();
-
-            // Let's create the email with Outlook
-            Outlook.Application outlookApp = new Outlook.Application();
-            Outlook.MailItem mailItem = (Outlook.MailItem)outlookApp.CreateItem(Outlook.OlItemType.olMailItem);
-            if (SelectedJobs.Count == 1)
+            Exception exception = null;
+            try
             {
-                string title = (SelectedJobs.FirstOrDefault().State == JobState.Error) ? "ERROR Report: Job '{0}'" : "Report: Job '{0}'";
+                StringBuilder SB = GetStats();
 
-                mailItem.Subject = string.Format(title, SelectedJobs.FirstOrDefault().Name);
+                // Let's create the email with Outlook
+                Outlook.Application outlookApp = new Outlook.Application();
+                Outlook.MailItem mailItem = (Outlook.MailItem)outlookApp.CreateItem(Outlook.OlItemType.olMailItem);
+                if (SelectedJobs.Count == 1)
+                {
+                    string title = (SelectedJobs.FirstOrDefault().State == JobState.Error) ? "ERROR Report: Job '{0}'" : "Report: Job '{0}'";
 
+                    mailItem.Subject = string.Format(title, SelectedJobs.FirstOrDefault().Name);
+                }
+                else
+                {
+                    mailItem.Subject = string.Format("Report: {0} jobs, {1} Error(s)", SelectedJobs.Count(), SelectedJobs.Where(j => j.State == JobState.Error).Count());
+                }
+
+                mailItem.HTMLBody = "<FONT Face=\"Courier New\">";
+                mailItem.HTMLBody += SB.Replace(" ", "&nbsp;").Replace(Environment.NewLine, "<br />").ToString();
+                mailItem.Display(false);
             }
-            else
+
+
+            catch (System.Runtime.InteropServices.COMException ce)
             {
-                mailItem.Subject = string.Format("Report: {0} jobs, {1} Error(s)", SelectedJobs.Count(), SelectedJobs.Where(j => j.State == JobState.Error).Count());
-
+                // 0x80040154 Class not registered
+                // This happen if outlook is not installed
+                if (ce.HResult == unchecked((int)0x80040154))
+                {
+                    MessageBox.Show("Please install Office Outlook to use this functionality.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                exception = ce;
+            }
+            catch (Exception e)
+            {
+                exception = e;
             }
 
-            mailItem.HTMLBody = "<FONT Face=\"Courier New\">";
-            mailItem.HTMLBody += SB.Replace(" ", "&nbsp;").Replace(Environment.NewLine, "<br />").ToString();
-            mailItem.Display(false);
+            if (exception != null)
+            {
+                MessageBox.Show("Exception while trying to compose the email." + exception, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         public void CopyStatsToClipBoard()
@@ -598,6 +704,10 @@ namespace AMSExplorer
                                 // AME Encoding task
                                 pricetask = lsizeoutputprocessed * (double)Properties.Settings.Default.AMEPrice;
                                 break;
+                            case (Constants.AzureMediaEncoderPremiumWorkflow):
+                                // AME Premium Workflow Encoding task
+                                pricetask = lsizeoutputprocessed * (double)Properties.Settings.Default.AMEPremiumWorkflowPreviewPrice;
+                                break;
                             case (Constants.WindowsAzureMediaEncoder):
                                 // WAME Encoding task
                                 pricetask = (lsizeinputprocessed + lsizeoutputprocessed) * (double)Properties.Settings.Default.LegacyEncodingPrice;
@@ -665,7 +775,7 @@ namespace AMSExplorer
             return Error ? null : processor;
         }
 
-        private StringBuilder GetStats()
+        public StringBuilder GetStats()
         {
             StringBuilder sb = new StringBuilder();
             const string section = "==============================================================================";
@@ -825,27 +935,36 @@ namespace AMSExplorer
     {
         private List<IAsset> SelectedAssets;
         public const string Type_Workflow = "Workflow";
-        public const string Type_LiveArchive = "Live archive";
+        public const string Type_LiveArchive = "Live Archive";
         public const string Type_Thumbnails = "Thumbnails";
         public const string Type_Empty = "(empty)";
-        public const string _prog_down_https_SAS = "Progressive Download URIs (SAS)";
-        public const string _prog_down_http_streaming = "Progressive Download URIs (SE)";
-        public const string _hls_v4 = "HLS v4  URI";
-        public const string _hls_v3 = "HLS v3  URI";
-        public const string _dash = "MPEG-DASH URI";
-        public const string _smooth = "Smooth Streaming URI";
-        public const string _smooth_legacy = "Smooth Streaming (legacy) URI";
-        public const string _hls = "HLS URI";
+        public const string _prog_down_https_SAS = "Progressive Download URLs (SAS)";
+        public const string _prog_down_http_streaming = "Progressive Download URLs (SE)";
+        public const string _hls_v4 = "HLS v4  URL";
+        public const string _hls_v3 = "HLS v3  URL";
+        public const string _dash = "MPEG-DASH URL";
+        public const string _smooth = "Smooth Streaming URL";
+        public const string _smooth_legacy = "Smooth Streaming (legacy) URL";
+        public const string _hls = "HLS URL";
 
         private const string format_smooth_legacy = "fmp4-v20";
         private const string format_hls_v4 = "m3u8-aapl";
         private const string format_hls_v3 = "m3u8-aapl-v3";
         private const string format_dash = "mpd-time-csf";
-        private const string format_url = "(format={0})";
+        private const string format_url = "format={0}";
+        private const string filter_url = "filter={0}";
 
-        public AssetInfo(List<IAsset> MySelectedAssets)
+        private const string ManifestFileExtension = ".ism";
+        private const string HlsStreamingParameter = "(format=m3u8-aapl)";
+        private const string Hlsv3StreamingParameter = "(format=m3u8-aapl-v3)";
+        private const string MpegDashStreamingParameter = "(format=mpd-time-csf)";
+        private const string SmoothStreamingLegacyParameter = "(format=fmp4-v20)";
+        private const string BaseStreamingUrlTemplate = "{0}/{1}/manifest{2}";
+
+
+        public AssetInfo(List<IAsset> mySelectedAssets)
         {
-            SelectedAssets = MySelectedAssets;
+            SelectedAssets = mySelectedAssets;
         }
         public AssetInfo(IAsset asset)
         {
@@ -853,37 +972,235 @@ namespace AMSExplorer
             SelectedAssets.Add(asset);
         }
 
+        public IEnumerable<Uri> GetValidURIs()
+        {
+            var _context = SelectedAssets.FirstOrDefault().GetMediaContext();
+            IEnumerable<Uri> ValidURIs;
+            IAsset asset = SelectedAssets.FirstOrDefault();
+            var ismFile = asset.AssetFiles.AsEnumerable().FirstOrDefault(f => f.Name.EndsWith(".ism"));
+            if (ismFile != null)
+            {
+                var locators = asset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin && l.ExpirationDateTime > DateTime.UtcNow);
+
+                var template = new UriTemplate("{contentAccessComponent}/{ismFileName}/manifest");
+                ValidURIs = locators.SelectMany(l =>
+                    _context
+                        .StreamingEndpoints
+                        .AsEnumerable()
+                          .Where(o => (o.State == StreamingEndpointState.Running) && (o.ScaleUnits > 0))
+                          .OrderByDescending(o => o.CdnEnabled)
+                        .Select(
+                            o =>
+                                template.BindByPosition(new Uri("http://" + o.HostName), l.ContentAccessComponent,
+                                    ismFile.Name)))
+                    .ToArray();
+
+                return ValidURIs;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+
+        public static ILocator CreatedTemporaryOnDemandLocator(IAsset asset)
+        {
+            ILocator tempLocator = null;
+            try
+            {
+                var locatorTask = Task.Factory.StartNew(() =>
+                {
+                    tempLocator = asset.GetMediaContext().Locators.Create(LocatorType.OnDemandOrigin, asset, AccessPermissions.Read, TimeSpan.FromHours(1));
+                });
+                locatorTask.Wait();
+            }
+            catch (Exception ex)
+            {
+
+            }
+
+            return tempLocator;
+        }
+
+        public static Uri GetValidOnDemandURI(IAsset asset)
+        {
+            var ai = new AssetInfo(asset);
+            return ai.GetValidURIs().FirstOrDefault();
+        }
+
+
+        public static IEnumerable<Uri> GetSmoothStreamingUris(ILocator originLocator, IStreamingEndpoint se = null, string filter = null, bool https = false)
+        {
+            return GetStreamingUris(originLocator, string.Empty, se, filter, https);
+        }
+
+        public static IEnumerable<Uri> GetSmoothStreamingLegacyUris(ILocator originLocator, IStreamingEndpoint se = null, string filter = null, bool https = false)
+        {
+            return GetStreamingUris(originLocator, SmoothStreamingLegacyParameter, se, filter, https);
+        }
+
+        /// <summary>
+        /// Returns the HLS version 4 URL of the <paramref name="originLocator"/>; otherwise, null.
+        /// </summary>
+        /// <param name="originLocator">The <see cref="ILocator"/> instance.</param>
+        /// <returns>A <see cref="System.Uri"/> representing the HLS version 4 URL of the <paramref name="originLocator"/>; otherwise, null.</returns>
+        public static IEnumerable<Uri> GetHlsUris(ILocator originLocator, IStreamingEndpoint se = null, string filter = null, bool https = false)
+        {
+            return GetStreamingUris(originLocator, HlsStreamingParameter, se, filter, https);
+        }
+
+        /// <summary>
+        /// Returns the HLS version 3 URL of the <paramref name="originLocator"/>; otherwise, null.
+        /// </summary>
+        /// <param name="originLocator">The <see cref="ILocator"/> instance.</param>
+        /// <returns>A <see cref="System.Uri"/> representing the HLS version 3 URL of the <paramref name="originLocator"/>; otherwise, null.</returns>
+        public static IEnumerable<Uri> GetHlsv3Uris(ILocator originLocator, IStreamingEndpoint se = null, string filter = null, bool https = false)
+        {
+            return GetStreamingUris(originLocator, Hlsv3StreamingParameter, se, filter, https);
+        }
+
+        /// <summary>
+        /// Returns the MPEG-DASH URL of the <paramref name="originLocator"/>; otherwise, null.
+        /// </summary>
+        /// <param name="originLocator">The <see cref="ILocator"/> instance.</param>
+        /// <returns>A <see cref="System.Uri"/> representing the MPEG-DASH URL of the <paramref name="originLocator"/>; otherwise, null.</returns>
+        public static IEnumerable<Uri> GetMpegDashUris(ILocator originLocator, IStreamingEndpoint se = null, string filter = null, bool https = false)
+        {
+            return GetStreamingUris(originLocator, MpegDashStreamingParameter, se, filter, https);
+        }
+
+
+        public static IEnumerable<IAssetFile> GetManifestAssetFiles(IAsset asset)
+        {
+            if (asset == null)
+            {
+                throw new ArgumentNullException("asset", "The asset cannot be null.");
+            }
+
+
+            return asset
+                .AssetFiles
+                .ToList()
+                .Where(af => af.Name.EndsWith(ILocatorExtensions.ManifestFileExtension, StringComparison.OrdinalIgnoreCase))
+                  .ToList();
+        }
+
+        private static IEnumerable<Uri> GetStreamingUris(ILocator originLocator, string streamingParameter, IStreamingEndpoint se = null, string filter = null, bool https = false)
+        {
+            const string BaseStreamingUrlTemplate = "{0}/{1}/manifest{2}";
+
+            if (originLocator == null)
+            {
+                throw new ArgumentNullException("locator", "The locator cannot be null.");
+            }
+
+            if (originLocator.Type != LocatorType.OnDemandOrigin)
+            {
+                throw new ArgumentException("The locator type must be on-demand origin.", "originLocator");
+            }
+
+            IEnumerable<Uri> smoothStreamingUri = null;
+            IAsset asset = originLocator.Asset;
+            IEnumerable<IAssetFile> manifestAssetFiles = GetManifestAssetFiles(asset);
+            if (manifestAssetFiles != null)
+            {
+                smoothStreamingUri = manifestAssetFiles.Select(f => new Uri(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            BaseStreamingUrlTemplate,
+                            originLocator.Path.TrimEnd('/'),
+                            f.Name,
+                            streamingParameter),
+                        UriKind.Absolute));
+            }
+
+            if (se != null)
+            {
+                string hostname = se.HostName;
+                smoothStreamingUri = smoothStreamingUri.Select(u => new UriBuilder()
+                {
+                    Host = hostname,
+                    Scheme = https ? "https://" : "http://",
+                    Path = AddFilterToUrlString(u.AbsolutePath, filter)
+                }.Uri);
+            }
+
+            return smoothStreamingUri;
+        }
+
+
 
         public static string GetSmoothLegacy(string smooth_uri)
         {
             return string.Format("{0}(format={1})", smooth_uri, format_smooth_legacy);
         }
-
-        public static string GetHLSv3(string hls_uri)
+        public static string AddFilterToUrlString(string urlstr, string filter)
         {
-            return hls_uri.Replace("(format=" + format_hls_v4, "(format=" + format_hls_v3);
+            // add a filter
+            if (filter != null)
+            {
+                return AddParameterToUrlString(urlstr, string.Format(AssetInfo.filter_url, filter));
+
+            }
+            else
+            {
+                return urlstr;
+            }
+
+        }
+
+        public static string AddParameterToUrlString(string urlstr, string parameter)
+        {
+            // add a parameter (like "format=mpd-time-csf" or "filter=myfilter" to urlstr
+
+            const string querystr = "/manifest(";
+
+            if (urlstr.Contains(querystr)) // there is already a parameter
+            {
+                int pos = urlstr.IndexOf(querystr, 0);
+                urlstr = urlstr.Substring(0, pos + 10) + parameter + "," + urlstr.Substring(pos + 10);
+            }
+            else
+            {
+                urlstr += string.Format("({0})", parameter);
+            }
+
+
+            return urlstr;
         }
 
         // return the URL with hostname from streaming endpoint
-        public static Uri rw(Uri url, IStreamingEndpoint se, bool https = false)
+        public static Uri RW(Uri url, IStreamingEndpoint se, string filter = null, bool https = false)
         {
             if (url != null)
             {
                 string hostname = se.HostName;
+                string path = url.AbsolutePath;
+                if (filter != null) // we want to add filter
+                {
+                    path = AddParameterToUrlString(path, string.Format(AssetInfo.filter_url, filter));
+                }
+
                 UriBuilder urib = new UriBuilder()
                 {
                     Host = hostname,
                     Scheme = https ? "https://" : "http://",
-                    Path = url.AbsolutePath,
+                    Path = path,
                 };
                 return urib.Uri;
             }
             else return null;
         }
 
-        public static string rw(string path, IStreamingEndpoint se, bool https = false)
+        public static IEnumerable<Uri> rw(IEnumerable<Uri> urls, IStreamingEndpoint se, string filter = null, bool https = false)
         {
-            return rw(new Uri(path), se, https).ToString();
+            return urls.Select(u => RW(u, se, filter, https));
+        }
+
+        public static string RW(string path, IStreamingEndpoint se, string filter = null, bool https = false)
+        {
+            return RW(new Uri(path), se, filter, https).AbsoluteUri;
         }
 
 
@@ -1001,6 +1318,57 @@ namespace AMSExplorer
             return LocPubStatus;
         }
 
+
+        static public ManifestTimingData GetManifestTimingData(IAsset asset)
+        {
+            ManifestTimingData response = new ManifestTimingData() { IsLive = false, Error = false, TimestampOffset = 0 };
+
+            try
+            {
+                ILocator mytemplocator = null;
+                Uri myuri = AssetInfo.GetValidOnDemandURI(asset);
+                if (myuri == null)
+                {
+                    mytemplocator = AssetInfo.CreatedTemporaryOnDemandLocator(asset);
+                    myuri = AssetInfo.GetValidOnDemandURI(asset);
+                }
+                if (myuri != null)
+                {
+                    XDocument manifest = XDocument.Load(myuri.ToString());
+                    var smoothmedia = manifest.Element("SmoothStreamingMedia");
+                    string timescalefrommanifest = smoothmedia.Attribute("TimeScale").Value;
+                    response.TimeScale = long.Parse(timescalefrommanifest);
+
+                    var videotrack = smoothmedia.Elements("StreamIndex").Where(a => a.Attribute("Type").Value == "video");
+                    response.TimestampOffset = long.Parse(videotrack.FirstOrDefault().Element("c").Attribute("t").Value);
+
+                    if (smoothmedia.Attribute("IsLive") != null && smoothmedia.Attribute("IsLive").Value == "TRUE")
+                    { // Live asset.... No duration to read (but we can read scaling)
+                        response.IsLive = true;
+                    }
+                    else
+                    {
+                        response.AssetDuration = long.Parse(smoothmedia.Attribute("Duration").Value);
+                    }
+                }
+                else
+                {
+                    response.Error = true;
+                }
+                if (mytemplocator != null) mytemplocator.Delete();
+            }
+            catch (Exception ex)
+            {
+                response.Error = true;
+            }
+            return response;
+        }
+
+        public static long ReturnTimestampInTicks(long timestamp, long timescale)
+        {
+            return (long)((double)timestamp * (double)TimeSpan.TicksPerSecond / (double)timescale);
+        }
+
         public static IAsset GetAsset(string assetId, CloudMediaContext _context)
         {
             IAsset asset;
@@ -1049,6 +1417,11 @@ namespace AMSExplorer
                     type = "Smooth Streaming";
                     var cfffiles = asset.AssetFiles.ToList().Where(f => f.Name.EndsWith(".ismv", StringComparison.OrdinalIgnoreCase) || f.Name.EndsWith(".isma", StringComparison.OrdinalIgnoreCase)).ToArray();
                     number = cfffiles.Count();
+                    if (number == 0 && asset.AssetFiles.Count() > 2)
+                    {
+                        number = asset.AssetFiles.Count() - 2;  // tracks - 2 manifest files
+                        type = Type_LiveArchive;
+                    }
                     break;
 
                 case AssetType.Unknown:
@@ -1100,7 +1473,7 @@ namespace AMSExplorer
                         var AssetFiles = asset.AssetFiles.ToList();
                         var JPGAssetFiles = AssetFiles.Where(f => f.Name.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || f.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || f.Name.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase) || f.Name.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)).ToArray();
 
-                        if ((JPGAssetFiles.Count() > 1) && (JPGAssetFiles.Count() == AssetFiles.Count))
+                        if ((JPGAssetFiles.Count() > 1) && (JPGAssetFiles.Count() >= (AssetFiles.Count - 1)))
                         {
                             type = Type_Thumbnails;
                             number = JPGAssetFiles.Count();
@@ -1112,6 +1485,30 @@ namespace AMSExplorer
                     break;
             }
             return string.Format("{0} ({1})", type, number);
+        }
+
+        static public void SetISMFileAsPrimary(IAsset asset)
+        {
+            var ismAssetFiles = asset.AssetFiles.ToList().
+                Where(f => f.Name.EndsWith(".ism", StringComparison.OrdinalIgnoreCase)).ToArray();
+
+            if (ismAssetFiles.Count() != 0)
+            {
+                ismAssetFiles.First().IsPrimary = true;
+                ismAssetFiles.First().Update();
+            }
+        }
+
+        static public void SetFileAsPrimary(IAsset asset, string assetfilename)
+        {
+            var ismAssetFiles = asset.AssetFiles.ToList().
+                Where(f => f.Name.Equals(assetfilename, StringComparison.OrdinalIgnoreCase)).ToArray();
+
+            if (ismAssetFiles.Count() == 1)
+            {
+                ismAssetFiles.First().IsPrimary = true;
+                ismAssetFiles.First().Update();
+            }
         }
 
 
@@ -1238,214 +1635,257 @@ namespace AMSExplorer
                 // Asset Stats
                 foreach (IAsset theAsset in SelectedAssets)
                 {
-                    string MyAssetType = AssetInfo.GetAssetType(theAsset);
-                    bool bfileinasset = (theAsset.AssetFiles.Count() == 0) ? false : true;
-                    long size = -1;
-                    if (bfileinasset)
-                    {
-                        size = 0;
-                        foreach (IAssetFile file in theAsset.AssetFiles)
-                        {
-                            size += file.ContentFileSize;
-                        }
-                    }
-                    sb.AppendLine("Asset Name          : " + theAsset.Name);
-                    sb.AppendLine("Asset Type          : " + theAsset.AssetType);
-                    sb.AppendLine("Asset Id            : " + theAsset.Id);
-                    sb.AppendLine("Alternate ID        : " + theAsset.AlternateId);
-                    if (size != -1)
-                        sb.AppendLine("Size                : " + FormatByteSize(size));
-                    sb.AppendLine("State               : " + theAsset.State);
-                    sb.AppendLine("Created (UTC)       : " + theAsset.Created.ToLongDateString() + " " + theAsset.Created.ToLongTimeString());
-                    sb.AppendLine("Last Modified (UTC) : " + theAsset.LastModified.ToLongDateString() + " " + theAsset.LastModified.ToLongTimeString());
-                    sb.AppendLine("Creations Options   : " + theAsset.Options);
+                    sb.Append(GetStat(theAsset));
+                }
+            }
+            return sb;
+        }
 
-                    if (theAsset.State != AssetState.Deleted)
-                    {
-                        sb.AppendLine("IsStreamable        : " + theAsset.IsStreamable);
-                        sb.AppendLine("SupportsDynEnc      : " + theAsset.SupportsDynamicEncryption);
-                        sb.AppendLine("Uri                 : " + theAsset.Uri.ToString());
-                        sb.AppendLine("");
-                        sb.AppendLine("Storage Name        : " + theAsset.StorageAccountName);
-                        sb.AppendLine("Storage Bytes used  : " + FormatByteSize(theAsset.StorageAccount.BytesUsed));
-                        sb.AppendLine("Storage IsDefault   : " + theAsset.StorageAccount.IsDefault);
-                        sb.AppendLine("");
+        public static StringBuilder GetStat(IAsset MyAsset, IStreamingEndpoint SelectedSE = null)
+        {
+            StringBuilder sb = new StringBuilder();
+            string MyAssetType = AssetInfo.GetAssetType(MyAsset);
+            bool bfileinasset = (MyAsset.AssetFiles.Count() == 0) ? false : true;
+            long size = -1;
+            if (bfileinasset)
+            {
+                size = 0;
+                foreach (IAssetFile file in MyAsset.AssetFiles)
+                {
+                    size += file.ContentFileSize;
+                }
+            }
+            sb.AppendLine("Asset Name          : " + MyAsset.Name);
+            sb.AppendLine("Asset Type          : " + MyAsset.AssetType);
+            sb.AppendLine("Asset Id            : " + MyAsset.Id);
+            sb.AppendLine("Alternate ID        : " + MyAsset.AlternateId);
+            if (size != -1)
+                sb.AppendLine("Size                : " + FormatByteSize(size));
+            sb.AppendLine("State               : " + MyAsset.State);
+            sb.AppendLine("Created (UTC)       : " + MyAsset.Created.ToLongDateString() + " " + MyAsset.Created.ToLongTimeString());
+            sb.AppendLine("Last Modified (UTC) : " + MyAsset.LastModified.ToLongDateString() + " " + MyAsset.LastModified.ToLongTimeString());
+            sb.AppendLine("Creations Options   : " + MyAsset.Options);
 
-                        foreach (IAsset p_asset in theAsset.ParentAssets)
-                        {
-                            sb.AppendLine("Parent asset Name   : " + p_asset.Name);
-                            sb.AppendLine("Parent asset Id     : " + p_asset.Id);
-                        }
-                        sb.AppendLine("");
-                        foreach (IContentKey key in theAsset.ContentKeys)
-                        {
-                            sb.AppendLine("Content key         : " + key.Name);
-                            sb.AppendLine("Content key Id      : " + key.Id);
-                            sb.AppendLine("Content key Type    : " + key.ContentKeyType);
-                        }
-                        sb.AppendLine("");
-                        foreach (var pol in theAsset.DeliveryPolicies)
-                        {
-                            sb.AppendLine("Deliv policy Name   : " + pol.Name);
-                            sb.AppendLine("Deliv policy Id     : " + pol.Id);
-                            sb.AppendLine("Deliv policy Type   : " + pol.AssetDeliveryPolicyType);
-                            sb.AppendLine("Deliv pol Protocol  : " + pol.AssetDeliveryProtocol);
-                        }
-                        sb.AppendLine("");
+            if (MyAsset.State != AssetState.Deleted)
+            {
+                sb.AppendLine("IsStreamable        : " + MyAsset.IsStreamable);
+                sb.AppendLine("SupportsDynEnc      : " + MyAsset.SupportsDynamicEncryption);
+                sb.AppendLine("Uri                 : " + MyAsset.Uri.AbsoluteUri);
+                sb.AppendLine("");
+                sb.AppendLine("Storage Name        : " + MyAsset.StorageAccountName);
+                sb.AppendLine("Storage Bytes used  : " + FormatByteSize(MyAsset.StorageAccount.BytesUsed));
+                sb.AppendLine("Storage IsDefault   : " + MyAsset.StorageAccount.IsDefault);
+                sb.AppendLine("");
 
-                        foreach (IAssetFile fileItem in theAsset.AssetFiles)
-                        {
-                            if (fileItem.IsPrimary) sb.AppendLine("Primary");
-                            sb.AppendLine("Name                 : " + fileItem.Name);
-                            sb.AppendLine("Id                   : " + fileItem.Id);
-                            sb.AppendLine("File size            : " + fileItem.ContentFileSize + " Bytes");
-                            sb.AppendLine("Mime type            : " + fileItem.MimeType);
-                            sb.AppendLine("Init vector          : " + fileItem.InitializationVector);
-                            sb.AppendLine("Created              : " + fileItem.Created);
-                            sb.AppendLine("Last modified        : " + fileItem.LastModified);
-                            sb.AppendLine("Encrypted            : " + fileItem.IsEncrypted);
-                            sb.AppendLine("EncryptionScheme     : " + fileItem.EncryptionScheme);
-                            sb.AppendLine("EncryptionVersion    : " + fileItem.EncryptionVersion);
-                            sb.AppendLine("Encryption key id    : " + fileItem.EncryptionKeyId);
-                            sb.AppendLine("InitializationVector : " + fileItem.InitializationVector);
-                            sb.AppendLine("ParentAssetId        : " + fileItem.ParentAssetId);
-                            sb.AppendLine("==============");
-                            sb.AppendLine("");
-                        }
+                foreach (IAsset p_asset in MyAsset.ParentAssets)
+                {
+                    sb.AppendLine("Parent asset Name   : " + p_asset.Name);
+                    sb.AppendLine("Parent asset Id     : " + p_asset.Id);
+                }
+                sb.AppendLine("");
+                foreach (IContentKey key in MyAsset.ContentKeys)
+                {
+                    sb.AppendLine("Content key         : " + key.Name);
+                    sb.AppendLine("Content key Id      : " + key.Id);
+                    sb.AppendLine("Content key Type    : " + key.ContentKeyType);
+                }
+                sb.AppendLine("");
+                foreach (var pol in MyAsset.DeliveryPolicies)
+                {
+                    sb.AppendLine("Deliv policy Name   : " + pol.Name);
+                    sb.AppendLine("Deliv policy Id     : " + pol.Id);
+                    sb.AppendLine("Deliv policy Type   : " + pol.AssetDeliveryPolicyType);
+                    sb.AppendLine("Deliv pol Protocol  : " + pol.AssetDeliveryProtocol);
+                }
+                sb.AppendLine("");
 
-                        foreach (ILocator locator in theAsset.Locators)
-                        {
-                            sb.AppendLine("Locator Name      : " + locator.Name);
-                            sb.AppendLine("Locator Type      : " + locator.Type.ToString());
-                            sb.AppendLine("Locator Id        : " + locator.Id);
-                            sb.AppendLine("Locator Path      : " + locator.Path);
-                            if (locator.StartTime != null) sb.AppendLine("Start Time        : " + ((DateTime)locator.StartTime).ToLongDateString() + " " + ((DateTime)locator.StartTime).ToLongTimeString());
-                            if (locator.ExpirationDateTime != null) sb.AppendLine("Expiration Time   : " + ((DateTime)locator.ExpirationDateTime).ToLongDateString() + " " + ((DateTime)locator.ExpirationDateTime).ToLongTimeString());
-                            sb.AppendLine("");
-
-                            if (locator.Type == LocatorType.OnDemandOrigin)
-                            {
-                                sb.AppendLine(_prog_down_http_streaming + " : ");
-                                foreach (IAssetFile IAF in theAsset.AssetFiles) sb.AppendLine(locator.Path + IAF.Name);
-                                sb.AppendLine("");
-
-                                if (MyAssetType.StartsWith("HLS")) // It is a static HLS asset, so let's propose only the standard HLS V3 locator
-                                {
-                                    sb.AppendLine(AssetInfo._hls_v3 + " : ");
-                                    sb.AppendLine(locator.GetHlsUri().ToString().Replace("format=m3u8-aapl", "format=m3u8-aapl-v3"));
-                                    sb.AppendLine("");
-                                }
-                                else // It's not Static HLS
-                                {
-                                    if (locator.GetSmoothStreamingUri() != null)
-                                    {
-                                        sb.AppendLine(AssetInfo._smooth + " : ");
-                                        sb.AppendLine(locator.GetSmoothStreamingUri().ToString());
-                                        sb.AppendLine(AssetInfo._smooth_legacy + " : ");
-                                        sb.AppendLine(AssetInfo.GetSmoothLegacy(locator.GetSmoothStreamingUri().ToString()));
-                                    }
-
-                                    if (locator.GetMpegDashUri() != null)
-                                    {
-                                        sb.AppendLine(AssetInfo._dash + " : ");
-                                        sb.AppendLine(locator.GetMpegDashUri().ToString());
-                                    }
-
-                                    if (locator.GetHlsUri() != null)
-                                    {
-                                        sb.AppendLine(AssetInfo._hls_v4 + " : ");
-                                        sb.AppendLine(locator.GetHlsUri().ToString());
-                                        sb.AppendLine(AssetInfo._hls_v3 + " : ");
-                                        sb.AppendLine(locator.GetHlsv3Uri().ToString());
-                                        sb.AppendLine("");
-                                    }
-                                }
-                            }
-                            if (locator.Type == LocatorType.Sas)
-                            {
-                                List<Uri> ProgressiveDownloadUris;
-                                IEnumerable<IAssetFile> MyAssetFiles;
-                                sb.AppendLine(AssetInfo._prog_down_https_SAS + " : ");
-                                MyAssetFiles = theAsset.AssetFiles.ToList();
-                                // Generate the Progressive Download URLs for each file. 
-                                ProgressiveDownloadUris = MyAssetFiles.Select(af => af.GetSasUri(locator)).ToList();
-                                ProgressiveDownloadUris.ForEach(uri => sb.AppendLine(uri.ToString()));
-                            }
-                            sb.AppendLine("");
-                            sb.AppendLine("==============================================================================");
-                            sb.AppendLine("");
-                        }
-                    }
-                    sb.AppendLine("");
-                    sb.AppendLine("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+                foreach (IAssetFile fileItem in MyAsset.AssetFiles)
+                {
+                    if (fileItem.IsPrimary) sb.AppendLine("Primary");
+                    sb.AppendLine("Name                 : " + fileItem.Name);
+                    sb.AppendLine("Id                   : " + fileItem.Id);
+                    sb.AppendLine("File size            : " + fileItem.ContentFileSize + " Bytes");
+                    sb.AppendLine("Mime type            : " + fileItem.MimeType);
+                    sb.AppendLine("Init vector          : " + fileItem.InitializationVector);
+                    sb.AppendLine("Created              : " + fileItem.Created);
+                    sb.AppendLine("Last modified        : " + fileItem.LastModified);
+                    sb.AppendLine("Encrypted            : " + fileItem.IsEncrypted);
+                    sb.AppendLine("EncryptionScheme     : " + fileItem.EncryptionScheme);
+                    sb.AppendLine("EncryptionVersion    : " + fileItem.EncryptionVersion);
+                    sb.AppendLine("Encryption key id    : " + fileItem.EncryptionKeyId);
+                    sb.AppendLine("InitializationVector : " + fileItem.InitializationVector);
+                    sb.AppendLine("ParentAssetId        : " + fileItem.ParentAssetId);
+                    sb.AppendLine("==============");
                     sb.AppendLine("");
                 }
+
+                sb.Append(GetDescriptionLocators(MyAsset, SelectedSE));
+
+
+            }
+            sb.AppendLine("");
+            sb.AppendLine("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            sb.AppendLine("");
+
+            return sb;
+        }
+
+        public static StringBuilder GetDescriptionLocators(IAsset MyAsset, IStreamingEndpoint SelectedSE = null)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            foreach (ILocator locator in MyAsset.Locators)
+            {
+                sb.AppendLine("Locator Name      : " + locator.Name);
+                sb.AppendLine("Locator Type      : " + locator.Type.ToString());
+                sb.AppendLine("Locator Id        : " + locator.Id);
+                sb.AppendLine("Locator Path      : " + locator.Path);
+                if (locator.StartTime != null) sb.AppendLine("Start Time        : " + ((DateTime)locator.StartTime).ToLongDateString() + " " + ((DateTime)locator.StartTime).ToLongTimeString());
+                if (locator.ExpirationDateTime != null) sb.AppendLine("Expiration Time   : " + ((DateTime)locator.ExpirationDateTime).ToLongDateString() + " " + ((DateTime)locator.ExpirationDateTime).ToLongTimeString());
+                sb.AppendLine("");
+
+                if (locator.Type == LocatorType.OnDemandOrigin)
+                {
+                    sb.AppendLine(_prog_down_http_streaming + " : ");
+                    foreach (IAssetFile IAF in MyAsset.AssetFiles) sb.AppendLine((new Uri(locator.Path + IAF.Name)).AbsoluteUri);
+                    sb.AppendLine("");
+
+                    if (MyAsset.AssetType == AssetType.MediaServicesHLS) // It is a static HLS asset, so let's propose only the standard HLS V3 locator
+                    {
+                        sb.AppendLine(AssetInfo._hls + " : ");
+                        sb.AppendLine(locator.GetHlsUri().AbsoluteUri);
+                        sb.AppendLine("");
+                    }
+                    else if (MyAsset.AssetType == AssetType.SmoothStreaming || MyAsset.AssetType == AssetType.MultiBitrateMP4 || MyAsset.AssetType == AssetType.Unknown) //later to change Unknown to live archive
+                    {
+                        // It's not Static HLS
+                        // Smooth or multi MP4
+                        if (locator.GetSmoothStreamingUri() != null)
+                        {
+                            foreach (var uri in AssetInfo.GetSmoothStreamingUris(locator, SelectedSE))
+                            {
+                                sb.AppendLine(AssetInfo._smooth + " : ");
+                                sb.AppendLine(uri.AbsoluteUri);
+                            }
+
+                            foreach (var uri in AssetInfo.GetSmoothStreamingLegacyUris(locator, SelectedSE))
+                            {
+                                sb.AppendLine(AssetInfo._smooth_legacy + " : ");
+                                sb.AppendLine(uri.AbsoluteUri);
+                            }
+                        }
+
+                        if (locator.GetMpegDashUri() != null)
+                        {
+                            foreach (var uri in AssetInfo.GetMpegDashUris(locator, SelectedSE))
+                            {
+                                sb.AppendLine(AssetInfo._dash + " : ");
+                                sb.AppendLine(uri.AbsoluteUri);
+                            }
+                        }
+
+                        if (locator.GetHlsUri() != null)
+                        {
+                            foreach (var uri in AssetInfo.GetHlsUris(locator, SelectedSE))
+                            {
+                                sb.AppendLine(AssetInfo._hls_v4 + " : ");
+                                sb.AppendLine(uri.AbsoluteUri);
+                            }
+                            foreach (var uri in AssetInfo.GetHlsv3Uris(locator, SelectedSE))
+                            {
+                                sb.AppendLine(AssetInfo._hls_v3 + " : ");
+                                sb.AppendLine(uri.AbsoluteUri);
+                            }
+                            sb.AppendLine("");
+                        }
+                    }
+                }
+                if (locator.Type == LocatorType.Sas)
+                {
+                    List<Uri> ProgressiveDownloadUris;
+                    IEnumerable<IAssetFile> MyAssetFiles;
+                    sb.AppendLine(AssetInfo._prog_down_https_SAS + " : ");
+                    MyAssetFiles = MyAsset.AssetFiles.ToList();
+                    // Generate the Progressive Download URLs for each file. 
+                    ProgressiveDownloadUris = MyAssetFiles.Select(af => af.GetSasUri(locator)).ToList();
+                    ProgressiveDownloadUris.ForEach(uri => sb.AppendLine(uri.AbsoluteUri));
+                }
+                sb.AppendLine("");
+                sb.AppendLine("==============================================================================");
+                sb.AppendLine("");
             }
             return sb;
         }
 
 
 
-
-
-        public static void DoPlayBackWithBestStreamingEndpoint(PlayerType typeplayer, string Urlstr, CloudMediaContext context, IAsset myasset = null, bool DoNotRewriteURL = false, AssetProtectionType keytype = AssetProtectionType.None, AzureMediaPlayerFormats formatamp = AzureMediaPlayerFormats.Auto)
+        public static string DoPlayBackWithBestStreamingEndpoint(PlayerType typeplayer, string Urlstr, CloudMediaContext context,
+            IAsset myasset = null, bool DoNotRewriteURL = false, string filter = null, AssetProtectionType keytype = AssetProtectionType.None,
+            AzureMediaPlayerFormats formatamp = AzureMediaPlayerFormats.Auto,
+            AzureMediaPlayerTechnologies technology = AzureMediaPlayerTechnologies.Auto, bool launchbrowser = true)
         {
+            string FullPlayBackLink = null;
             if (!string.IsNullOrEmpty(Urlstr))
             {
 
                 IStreamingEndpoint choosenSE = GetBestStreamingEndpoint(context);
-                if (!DoNotRewriteURL) Urlstr = rw(Urlstr.ToString(), choosenSE);
+                if (!DoNotRewriteURL) Urlstr = RW(Urlstr, choosenSE, filter);
 
-                //string token = null;
                 DynamicEncryption.TokenResult tokenresult = new DynamicEncryption.TokenResult();
 
-                if (myasset != null && DynamicEncryption.IsAssetHasAuthorizationPolicyWithToken(myasset, context))
+                if (myasset != null)
                 {
-                    // user wants perhaps to play an asset with a token, so let's try to generate it
-                    switch (typeplayer)
+                    keytype = AssetInfo.GetAssetProtection(myasset, context); // let's save the protection scheme (use by azure player)
+
+                    if (DynamicEncryption.IsAssetHasAuthorizationPolicyWithToken(myasset, context)) // dynamic encryption with token
                     {
-                        case PlayerType.SilverlightPlayReadyToken:
-                            tokenresult = DynamicEncryption.GetTestToken(myasset, context, ContentKeyType.CommonEncryption);
-                            if (!string.IsNullOrEmpty(tokenresult.TokenString))
-                            {
-                                tokenresult.TokenString = HttpUtility.UrlEncode(Constants.Bearer + tokenresult.TokenString);
-                                keytype = AssetProtectionType.PlayReady;
-                            }
-                            break;
+                        // user wants perhaps to play an asset with a token, so let's try to generate it
+                        switch (typeplayer)
+                        {
+                            case PlayerType.SilverlightPlayReadyToken:
+                                tokenresult = DynamicEncryption.GetTestToken(myasset, context, ContentKeyType.CommonEncryption);
+                                if (!string.IsNullOrEmpty(tokenresult.TokenString))
+                                {
+                                    tokenresult.TokenString = HttpUtility.UrlEncode(Constants.Bearer + tokenresult.TokenString);
+                                    keytype = AssetProtectionType.PlayReady;
+                                }
+                                break;
 
-                        case PlayerType.FlashAESToken:
-                            tokenresult = DynamicEncryption.GetTestToken(myasset, context, ContentKeyType.EnvelopeEncryption);
-                            if (!string.IsNullOrEmpty(tokenresult.TokenString))
-                            {
-                                tokenresult.TokenString = HttpUtility.UrlEncode(Constants.Bearer + tokenresult.TokenString);
-                                keytype = AssetProtectionType.AES;
-                            }
-                            break;
+                            case PlayerType.FlashAESToken:
+                                tokenresult = DynamicEncryption.GetTestToken(myasset, context, ContentKeyType.EnvelopeEncryption);
+                                if (!string.IsNullOrEmpty(tokenresult.TokenString))
+                                {
+                                    tokenresult.TokenString = HttpUtility.UrlEncode(Constants.Bearer + tokenresult.TokenString);
+                                    keytype = AssetProtectionType.AES;
+                                }
+                                break;
 
-                        case PlayerType.AzureMediaPlayer:
-                            keytype = AssetInfo.GetAssetProtection(myasset, context);
-                            switch (keytype)
-                            {
-                                case AssetProtectionType.None:
-                                    break;
-                                case AssetProtectionType.AES:
-                                case AssetProtectionType.PlayReady:
-                                    tokenresult = DynamicEncryption.GetTestToken(myasset, context, displayUI: true);
-                                    if (!string.IsNullOrEmpty(tokenresult.TokenString))
-                                    {
-                                        tokenresult.TokenString = HttpUtility.UrlEncode(Constants.Bearer + tokenresult.TokenString);
-                                        // if the user selecteed an CENC key, let's assume that the content is protected with PlayReady, otherwise AES
-                                        keytype = (tokenresult.ContentKeyType == ContentKeyType.CommonEncryption) ? AssetProtectionType.PlayReady : AssetProtectionType.AES;
-                                    }
-                                    break;
-                            }
-                            break;
+                            case PlayerType.AzureMediaPlayer:
+                            case PlayerType.AzureMediaPlayerFrame:
+                            case PlayerType.CustomPlayer:
+                                switch (keytype)
+                                {
+                                    case AssetProtectionType.None:
+                                        break;
+                                    case AssetProtectionType.AES:
+                                    case AssetProtectionType.PlayReady:
+                                        tokenresult = DynamicEncryption.GetTestToken(myasset, context, displayUI: true);
+                                        if (!string.IsNullOrEmpty(tokenresult.TokenString))
+                                        {
+                                            tokenresult.TokenString = HttpUtility.UrlEncode(Constants.Bearer + tokenresult.TokenString);
+                                            // if the user selecteed an CENC key, let's assume that the content is protected with PlayReady, otherwise AES
+                                            keytype = (tokenresult.ContentKeyType == ContentKeyType.CommonEncryption) ? AssetProtectionType.PlayReady : AssetProtectionType.AES;
+                                        }
+                                        break;
+                                }
+                                break;
 
-
-                        default:
-                            // no token enabled player
-                            break;
+                            default:
+                                // no token enabled player
+                                break;
+                        }
                     }
+
                 }
 
 
@@ -1453,10 +1893,14 @@ namespace AMSExplorer
                 switch (typeplayer)
                 {
                     case PlayerType.AzureMediaPlayer:
-                        string playerurl = "http://aka.ms/azuremediaplayer?url={0}";
+                    case PlayerType.AzureMediaPlayerFrame:
+                        string playerurl = typeplayer == PlayerType.AzureMediaPlayer ?
+                            "http://aka.ms/azuremediaplayer?url={0}"
+                            : "http://amsplayer.azurewebsites.net/azuremediaplayer/azuremediaplayer_iframe.html?autoplay=true&url={0}";
                         string protectionsyntax = "&protection={0}";
                         string tokensyntax = "&token={0}";
                         string formatsyntax = "&format={0}";
+                        string techsyntax = "&tech={0}";
 
                         if (keytype != AssetProtectionType.None)
                         {
@@ -1512,68 +1956,125 @@ namespace AMSExplorer
                             if (choosenSE.ScaleUnits == 0 && myasset != null && myasset.AssetType == AssetType.SmoothStreaming)
                                 playerurl += string.Format(formatsyntax, "smooth");
                         }
-                        Process.Start(string.Format(playerurl, Urlstr));
+
+
+                        if (technology != AzureMediaPlayerTechnologies.Auto)
+                        {
+                            switch (technology)
+                            {
+                                case AzureMediaPlayerTechnologies.Flash:
+                                    playerurl += string.Format(techsyntax, "flash");
+                                    break;
+
+                                case AzureMediaPlayerTechnologies.JavaScript:
+                                    playerurl += string.Format(techsyntax, "js");
+                                    break;
+
+                                case AzureMediaPlayerTechnologies.NativeHTML5:
+                                    playerurl += string.Format(techsyntax, "html5");
+                                    break;
+
+                                case AzureMediaPlayerTechnologies.Silverlight:
+                                    playerurl += string.Format(techsyntax, "silverlight");
+                                    break;
+
+                                default: // auto or other
+                                    break;
+                            }
+                        }
+
+                        FullPlayBackLink = string.Format(playerurl, HttpUtility.UrlEncode(Urlstr));
+
                         break;
 
                     case PlayerType.SilverlightMonitoring:
-                        Process.Start(@"http://smf.cloudapp.net/healthmonitor?Autoplay=true&url=" + Urlstr);
+                        FullPlayBackLink = @"http://smf.cloudapp.net/healthmonitor?Autoplay=true&url=" + HttpUtility.UrlEncode(Urlstr);
                         break;
 
                     case PlayerType.SilverlightPlayReadyToken:
-                        Process.Start(string.Format(@"http://sltoken.azurewebsites.net/#/!?url={0}&token={1}", Urlstr, tokenresult));
+                        FullPlayBackLink = string.Format(@"http://sltoken.azurewebsites.net/#/!?url={0}&token={1}", HttpUtility.UrlEncode(Urlstr), tokenresult);
                         break;
 
                     case PlayerType.DASHIFRefPlayer:
-                        if (!Urlstr.EndsWith(string.Format(AssetInfo.format_url, AssetInfo.format_dash))) Urlstr += string.Format(AssetInfo.format_url, AssetInfo.format_dash); // if not DASH extension, let's add it
-                        Process.Start(@"http://dashif.org/reference/players/javascript/1.2.0/index.html?url=" + Urlstr);
+                        if (!Urlstr.Contains(string.Format(AssetInfo.format_url, AssetInfo.format_dash)))
+                        {
+                            Urlstr = AssetInfo.AddParameterToUrlString(Urlstr, string.Format(AssetInfo.format_url, AssetInfo.format_dash));
+                        }
+                        FullPlayBackLink = @"http://dashif.org/reference/players/javascript/1.3.0/samples/dash-if-reference-player/index.html?url=" + Urlstr;
                         break;
 
                     case PlayerType.DASHAzurePage:
-                        Process.Start(@"http://amsplayer.azurewebsites.net/player.html?player=silverlight&format=mpeg-dash&url=" + Urlstr);
+                        FullPlayBackLink = @"http://amsplayer.azurewebsites.net/player.html?player=silverlight&format=mpeg-dash&url=" + HttpUtility.UrlEncode(Urlstr);
                         break;
 
                     case PlayerType.DASHLiveAzure:
-                        if (!Urlstr.EndsWith(string.Format(AssetInfo.format_url, AssetInfo.format_dash))) Urlstr += string.Format(AssetInfo.format_url, AssetInfo.format_dash); // if not DASH extension, let's add it
-                        Process.Start(@"http://dashplayer.azurewebsites.net?url=" + Urlstr);
+                        if (!Urlstr.Contains(string.Format(AssetInfo.format_url, AssetInfo.format_dash)))
+                        {
+                            Urlstr = AssetInfo.AddParameterToUrlString(Urlstr, string.Format(AssetInfo.format_url, AssetInfo.format_dash));
+                        }
+                        FullPlayBackLink = @"http://dashplayer.azurewebsites.net?url=" + Urlstr;
                         break;
 
                     case PlayerType.FlashAzurePage:
-                        Process.Start(@"http://amsplayer.azurewebsites.net/player.html?player=flash&format=smooth&url=" + Urlstr);
+                        FullPlayBackLink = @"http://amsplayer.azurewebsites.net/player.html?player=flash&format=smooth&url=" + HttpUtility.UrlEncode(Urlstr);
                         break;
 
                     case PlayerType.FlashAESToken:
-                        Process.Start(string.Format(@"http://aestoken.azurewebsites.net/#/!?url={0}&token={1}", Urlstr, tokenresult));
+                        FullPlayBackLink = string.Format(@"http://aestoken.azurewebsites.net/#/!?url={0}&token={1}", HttpUtility.UrlEncode(Urlstr), tokenresult);
                         break;
 
                     case PlayerType.MP4AzurePage:
-                        Process.Start(string.Format(@"http://amsplayer.azurewebsites.net/player.html?player=html5&format=mp4&url={0}&mp4url={0}", Urlstr));
+                        FullPlayBackLink = string.Format(@"http://amsplayer.azurewebsites.net/player.html?player=html5&format=mp4&url={0}&mp4url={0}", HttpUtility.UrlEncode(Urlstr));
                         break;
 
                     case PlayerType.CustomPlayer:
                         string myurl = Properties.Settings.Default.CustomPlayerUrl;
-                        Process.Start(myurl.Replace(Constants.NameconvManifestURL, Urlstr));
+                        FullPlayBackLink = myurl.Replace(Constants.NameconvManifestURL, HttpUtility.UrlEncode(Urlstr)).Replace(Constants.NameconvToken, tokenresult.TokenString);
                         break;
                 }
 
-
+                if (FullPlayBackLink != null && launchbrowser) Process.Start(FullPlayBackLink);
             }
 
-
-
+            return FullPlayBackLink;
         }
 
 
 
         internal static IStreamingEndpoint GetBestStreamingEndpoint(CloudMediaContext _context)
         {
-            // let's choose the default SE if it is running and use one RU minimum
-            IStreamingEndpoint SESelected = _context.StreamingEndpoints.Where(se => se.Name == "default").FirstOrDefault(); //default
-            if (SESelected == null || SESelected.ScaleUnits == 0 || SESelected.State != StreamingEndpointState.Running) //default is not there, or not running or has no scale unit
-            {
-                IStreamingEndpoint SESelected2 = _context.StreamingEndpoints.ToList().Where(se => se.State == StreamingEndpointState.Running).OrderBy(se => se.ScaleUnits).LastOrDefault();
-                if (SESelected2 != null) SESelected = SESelected2;
-            }
+            IStreamingEndpoint SESelected = _context.StreamingEndpoints.ToList().Where(se => se.State == StreamingEndpointState.Running && se.ScaleUnits > 0).OrderBy(se => se.CdnEnabled).OrderBy(se => se.ScaleUnits).LastOrDefault();
+            if (SESelected == null) SESelected = _context.StreamingEndpoints.Where(se => se.Name == "default").FirstOrDefault();
+
             return SESelected;
+        }
+
+        // copy a directory of the same container to another container
+          public static List<ICancellableAsyncResult> CopyBlobDirectory(CloudBlobDirectory srcDirectory, CloudBlobContainer destContainer, string sourceblobToken)
+        {
+  
+            List<ICancellableAsyncResult> mylistresults = new List<ICancellableAsyncResult>();
+
+            var srcBlobList = srcDirectory.ListBlobs(
+                useFlatBlobListing: true,
+                blobListingDetails: BlobListingDetails.None).ToList();
+
+            foreach (var src in srcBlobList)
+            {
+                var srcBlob = src as ICloudBlob;
+
+                // Create appropriate destination blob type to match the source blob
+                ICloudBlob destBlob;
+                if (srcBlob.Properties.BlobType == BlobType.BlockBlob)
+                    destBlob = destContainer.GetBlockBlobReference(srcBlob.Name);
+                else
+                    destBlob = destContainer.GetPageBlobReference(srcBlob.Name);
+
+                // copy using src blob as SAS
+                mylistresults.Add(destBlob.BeginStartCopyFromBlob(new Uri(srcBlob.Uri.AbsoluteUri + sourceblobToken), null, null));
+            }
+
+            return mylistresults;
         }
     }
 
@@ -1612,23 +2113,38 @@ namespace AMSExplorer
         public Bitmap DynamicEncryption { get; set; }
         public string DynamicEncryptionMouseOver { get; set; }
         public Bitmap Publication { get; set; }
+        public Bitmap Filters { get; set; }
+        public string FiltersMouseOver { get; set; }
         public string PublicationMouseOver { get; set; }
+        public Nullable<DateTime> LocatorExpirationDate { get; set; }
+        public bool LocatorExpirationDateWarning { get; set; }
     }
 
-
-    public class TransferEntry
+    public class EndPointMapping
     {
         public string Name { get; set; }
-        public TransferType Type { get; set; }
-        public TransferState State { get; set; }
-        public double Progress { get; set; }
-        public Nullable<DateTime> SubmitTime { get; set; }
-        public Nullable<DateTime> StartTime { get; set; }
-        public string EndTime { get; set; }
-        public string DestLocation { get; set; }
-        public bool processedinqueue { get; set; }  // true if we want to process in the queue. Otherwise, we don't wait and we do paralell transfers
-        public string ErrorDescription { get; set; }
+        public string APIServer { get; set; }
+        public string Scope { get; set; }
+        public string ACSBaseAddress { get; set; }
+        public string AzureEndpoint { get; set; }
+        public string ManagementPortal { get; set; }
     }
+
+    public class ExplorerOpenIDSample
+    {
+        public string Name { get; set; }
+        public string Uri { get; set; }
+       
+    }
+
+    public enum EndPointMappingName
+    {
+        AzureGlobal = 0,
+        AzureChina,
+        AzureGovernment
+    }
+
+
 
     public class CredentialsEntry
     {
@@ -1641,14 +2157,24 @@ namespace AMSExplorer
         public string OtherAPIServer { get; set; }
         public string OtherScope { get; set; }
         public string OtherACSBaseAddress { get; set; }
-        public string Reserved { get; set; }
+        public string OtherAzureEndpoint { get; set; }
+        public string OtherManagementPortal { get; set; }
+
 
         public static readonly int StringsCount = 10; // number of strings
         public static readonly string PartnerAPIServer = "https://nimbuspartners.cloudapp.net/API/";
         public static readonly string PartnerScope = "urn:NimbusPartners";
         public static readonly string PartnerACSBaseAddress = "https://mediaservices.accesscontrol.windows.net";
+        public static readonly string PartnerAzureEndpoint = "";
 
-        public CredentialsEntry(string accountname, string accountkey, string storagekey, string description, string usepartnerapi, string useotherapi, string apiserver, string scope, string acsbaseaddress, string reserved)
+        public static readonly string CoreServiceManagement = "https://management.core."; // with Azure endpoint, that gives "https://management.core.windows.net" for Azure Global and "https://management.core.chinacloudapi.cn" for China
+        public static readonly string CoreAttachStorageURL = "https://{0}.blob.core."; // with Azure endpoint, that gives "https://{0}.blob.core.windows.net" for Azure Global and "https://{0}.blob.core.chinacloudapi.cn/" for China
+        public static readonly string CoreStorage = "core."; // with Azure endpoint, that gives "core.windows.net" for Azure Global and "core.chinacloudapi.cn" for China
+
+        public static readonly string GlobalAzureEndpoint = "windows.net";
+        public static readonly string GlobalManagementPortal = "http://manage.windowsazure.com";
+
+        public CredentialsEntry(string accountname, string accountkey, string storagekey, string description, string usepartnerapi, string useotherapi, string apiserver, string scope, string acsbaseaddress, string azureendpoint, string managementportal)
         {
             AccountName = accountname;
             AccountKey = accountkey;
@@ -1659,44 +2185,54 @@ namespace AMSExplorer
             OtherAPIServer = apiserver;
             OtherScope = scope;
             OtherACSBaseAddress = acsbaseaddress;
-            Reserved = reserved;
+            OtherAzureEndpoint = azureendpoint;
+            OtherManagementPortal = managementportal;
         }
 
         public string[] ToArray()
         {
-            string[] myList = new String[] { AccountName, AccountKey, StorageKey, Description, UsePartnerAPI, UseOtherAPI, OtherAPIServer, OtherScope, OtherACSBaseAddress, Reserved };
+            string[] myList = new String[] { AccountName, AccountKey, StorageKey, Description, UsePartnerAPI, UseOtherAPI, OtherAPIServer, OtherScope, OtherACSBaseAddress, OtherAzureEndpoint + "|" + OtherManagementPortal };
             return myList;
+        }
+
+        // return the storage suffix for China, or null for Global Azure
+        public string ReturnStorageSuffix()
+        {
+            if (UseOtherAPI == true.ToString())
+                return CoreStorage + OtherAzureEndpoint;
+            else
+                return null;
         }
     }
 
     public enum PlayerType
     {
         AzureMediaPlayer = 0,
-        FlashAzurePage = 1,
-        SilverlightAzurePage = 2,
-        SilverlightMonitoring = 3,
-        SilverlightPlayReadyToken = 4,
-        FlashAESToken = 5,
-        DASHAzurePage = 6,
-        DASHLiveAzure = 7,
-        DASHIFRefPlayer = 8,
-        MP4AzurePage = 9,
-        CustomPlayer = 10
+        AzureMediaPlayerFrame,
+        FlashAzurePage,
+        SilverlightAzurePage,
+        SilverlightMonitoring,
+        SilverlightPlayReadyToken,
+        FlashAESToken,
+        DASHAzurePage,
+        DASHLiveAzure,
+        DASHIFRefPlayer,
+        MP4AzurePage,
+        CustomPlayer
     }
 
     public enum TaskJobCreationMode
     {
-        MultipleTasks_MultipleJobs = 0,
-        MultipleTasks_SingleJob = 1,
-        SingleTask_SingleJob = 2,
+        OneJobPerInputAsset = 0,
+        SingleJobForAllInputAssets
     }
 
     public enum PublishStatus
     {
         NotPublished = 0,
-        PublishedActive = 1,
-        PublishedFuture = 2,
-        PublishedExpired = 3,
+        PublishedActive,
+        PublishedFuture,
+        PublishedExpired
     }
 
     public enum AzureMediaPlayerFormats
@@ -1708,12 +2244,63 @@ namespace AMSExplorer
         VideoMP4 = 4
     }
 
+    public enum AzureMediaPlayerTechnologies
+    {
+        Auto = 0,
+        JavaScript,
+        Flash,
+        Silverlight,
+        NativeHTML5
+    }
+
 
     public enum AssetProtectionType
     {
         None = 0,
         AES = 1,
         PlayReady = 2
+    }
+
+    public enum TypeInputExtraInput
+    {
+        None = 0,
+        SelectedWorkflow,
+        SelectedAssets
+    }
+
+    public class WatchFolderSettings
+    {
+        public string FolderPath { get; set; }
+        public bool IsOn { get; set; }
+        public bool DeleteFile { get; set; }
+        public bool PublishOutputAssets { get; set; }
+        public string SendEmailToRecipient { get; set; }
+        public IJobTemplate JobTemplate { get; set; }
+        public List<IAsset> ExtraInputAssets { get; set; }
+        public TypeInputExtraInput TypeInputExtraInput { get; set; }
+        public FileSystemWatcher Watcher { get; set; }
+        public INotificationEndPoint NotificationEndPoint { get; set; }
+
+        public WatchFolderSettings()
+        {
+            FolderPath = string.Empty;
+            IsOn = false;
+            DeleteFile = false;
+            PublishOutputAssets = false;
+            SendEmailToRecipient = null;
+            JobTemplate = null;
+            ExtraInputAssets = null;
+            TypeInputExtraInput = TypeInputExtraInput.None;
+        }
+    }
+
+    public class ManifestTimingData
+    {
+        public long AssetDuration { get; set; }
+        public long TimestampOffset { get; set; }
+        public long TimeScale { get; set; }
+        public bool IsLive { get; set; }
+        public bool Error { get; set; }
     }
 
     class HostNameClass
@@ -1736,6 +2323,60 @@ namespace AMSExplorer
         }
     }
 
+    public class GenericTask
+    {
+        public IMediaProcessor Processor;
+        public string ProcessorConfiguration;
+        public TypeInputAssetGeneric InputAssetType;
+        public string InputAsset;
+    }
+
+    public class GenericTaskAsset
+    {
+        public TypeInputAssetGeneric InputAssetType;
+        public string InputAsset;
+    }
+
+    public enum TypeInputAssetGeneric
+    {
+        InputJobAssets = 0,
+        SpecificAssetID,
+        TaskOutputAsset
+    }
+
+
+    public class LocalEncoder
+    {
+        public string Name { get; set; }
+        public string Folder { get; set; }
+        public string Command { get; set; }
+        public StreamingProtocol? Protocol { get; set; }
+        public Uri InstallURL { get; set; }
+        public bool CanBeRunLocally { get; set; }
+        public bool EnableSettings { get; set; }
+        public string Comment { get; set; }
+    }
+
+
+    public class IndexerOptionsVar
+    {
+        public bool WebVTT { get; set; }
+        public bool SAMI { get; set; }
+        public bool TTML { get; set; }
+        public bool AIB { get; set; }
+        public bool Keywords { get; set; }
+
+    }
+
+    public class JobOptionsVar
+    {
+        public int Priority { get; set; }
+        public string StorageSelected { get; set; }
+        public TaskOptions TasksOptionsSetting { get; set; }
+        public bool TasksOptionsSettingReadOnly { get; set; }
+        public AssetCreationOptions OutputAssetsCreationOptions { get; set; }
+
+    }
 
 
 

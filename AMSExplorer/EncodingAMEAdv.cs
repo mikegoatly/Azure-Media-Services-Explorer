@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="EncodingAMEAdv.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -28,6 +27,8 @@ using System.Xml;
 using System.Xml.Linq;
 using System.IO;
 using Microsoft.WindowsAzure.MediaServices.Client;
+using System.Diagnostics;
+
 
 namespace AMSExplorer
 {
@@ -70,13 +71,18 @@ namespace AMSExplorer
             }
         }
 
-        public string StorageSelected
+        public JobOptionsVar JobOptions
         {
             get
             {
-                return ((Item)comboBoxStorage.SelectedItem).Value;
+                return buttonJobOptions.GetSettings();
+            }
+            set
+            {
+                buttonJobOptions.SetSettings(value);
             }
         }
+
 
 
         public List<IMediaProcessor> EncodingProcessorsList
@@ -131,17 +137,6 @@ namespace AMSExplorer
         }
 
 
-        public int EncodingPriority
-        {
-            get
-            {
-                return (int)numericUpDownPriority.Value;
-            }
-            set
-            {
-                numericUpDownPriority.Value = value;
-            }
-        }
 
 
         public EncodingAMEAdv(CloudMediaContext context)
@@ -149,9 +144,10 @@ namespace AMSExplorer
             InitializeComponent();
             this.Icon = Bitmaps.Azure_Explorer_ico;
             _context = context;
+            buttonJobOptions.Initialize(_context);
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void buttonLoadXML_Click(object sender, EventArgs e)
         {
 
             if (Directory.Exists(this.EncodingAMEPresetXMLFiles))
@@ -163,10 +159,11 @@ namespace AMSExplorer
                 try
                 {
                     doc = XDocument.Load(openFileDialogPreset.FileName);
-                    textBoxConfiguration.Text = doc.ToString();
+                    textBoxConfiguration.Text = doc.Declaration.ToString() + doc.ToString();
                     checkBoxNamingConvention.Enabled = true;
                     checkBoxVSS.Enabled = true;
                     tableLayoutPanelIAssets.Enabled = true;
+                    buttonSaveXML.Enabled = true;
                     UpdateControls();
                 }
                 catch (Exception ex)
@@ -704,11 +701,9 @@ namespace AMSExplorer
 
         private void EncodingCustom_Load(object sender, EventArgs e)
         {
-            foreach (var storage in _context.StorageAccounts)
-            {
-                comboBoxStorage.Items.Add(new Item(string.Format("{0} {1}", storage.Name, storage.IsDefault ? "(default)" : ""), storage.Name));
-                if (storage.Name == _context.DefaultStorageAccount.Name) comboBoxStorage.SelectedIndex = comboBoxStorage.Items.Count - 1;
-            }
+            moreinfoame.Links.Add(new LinkLabel.Link(0, moreinfoame.Text.Length, Constants.LinkMoreAMEAdvanced));
+
+
         }
 
         private void textBoxNamingConvention_TextChanged(object sender, EventArgs e)
@@ -967,6 +962,29 @@ namespace AMSExplorer
         private void label34_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void moreinfoame_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            Process.Start(e.Link.LinkData as string);
+
+        }
+
+        private void buttonSaveXML_Click(object sender, EventArgs e)
+        {
+            if (saveFileDialogPreset.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    var tempdoc = XDocument.Parse(textBoxConfiguration.Text);
+                    tempdoc.Save(saveFileDialogPreset.FileName);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error: Could not save file to disk. Original error: " + ex.Message);
+                }
+                
+            }
         }
     }
 }

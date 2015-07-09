@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="ChannelInformation.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -32,6 +31,13 @@ using Microsoft.WindowsAzure.Storage.Auth;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Microsoft.WindowsAzure.Storage.Blob.Protocol;
 using System.Web;
+using System.Net;
+
+
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Text.RegularExpressions;
+
 
 namespace AMSExplorer
 {
@@ -41,6 +47,7 @@ namespace AMSExplorer
         public CloudMediaContext MyContext;
         private BindingList<IPRange> InputEndpointSettingList = new BindingList<IPRange>();
         private BindingList<IPRange> PreviewEndpointSettingList = new BindingList<IPRange>();
+        private Mainform MyMainForm;
 
         public IList<IPRange> GetInputIPAllowList
         {
@@ -105,10 +112,11 @@ namespace AMSExplorer
             }
         }
 
-        public ChannelInformation()
+        public ChannelInformation(Mainform mainform)
         {
             InitializeComponent();
             this.Icon = Bitmaps.Azure_Explorer_ico;
+            MyMainForm = mainform;
         }
 
         private void contextMenuStripDG_MouseClick(object sender, MouseEventArgs e)
@@ -144,6 +152,26 @@ namespace AMSExplorer
             DGChannel.Rows.Add("Last Modified", ((DateTime)MyChannel.LastModified).ToLocalTime());
             DGChannel.Rows.Add("Description", MyChannel.Description);
             DGChannel.Rows.Add("Input protocol", MyChannel.Input.StreamingProtocol);
+            DGChannel.Rows.Add("Encoding Type", MyChannel.EncodingType);
+
+            if (MyChannel.Encoding != null)
+            {
+                DGChannel.Rows.Add("Encoding System Preset", MyChannel.Encoding.SystemPreset);
+                DGChannel.Rows.Add("Encoding IgnoreCEA708", MyChannel.Encoding.IgnoreCea708ClosedCaptions);
+                DGChannel.Rows.Add("Encoding Video Streams Count", MyChannel.Encoding.VideoStreams.Count);
+                DGChannel.Rows.Add("Encoding Audio Streams Count", MyChannel.Encoding.AudioStreams.Count);
+                DGChannel.Rows.Add("Encoding Ad Marker Source", (AdMarkerSource)MyChannel.Encoding.AdMarkerSource);
+
+                if (MyChannel.Slate != null)
+                {
+                    DGChannel.Rows.Add("Default Slate Asset Id", MyChannel.Slate.DefaultSlateAssetId);
+                    DGChannel.Rows.Add("Automatic Slate Insertion on AD signal", MyChannel.Slate.InsertSlateOnAdMarker);
+                }
+                else
+                {
+                    DGChannel.Rows.Add("Slate settings","(none)");
+                }
+            }
 
 
             if (MyChannel.Input.KeyFrameInterval != null)
@@ -153,13 +181,17 @@ namespace AMSExplorer
                 textBoxKeyFrame.Text = ((TimeSpan)MyChannel.Input.KeyFrameInterval).TotalSeconds.ToString();
             }
 
+            string[] stringnameurl = new string[] { "Primary ", "Secondary " };
+
+            int i = 0;
             foreach (var endpoint in MyChannel.Input.Endpoints)
             {
-                DGChannel.Rows.Add(string.Format("Input URL ({0})", endpoint.Protocol), endpoint.Url);
+                DGChannel.Rows.Add(string.Format("{0}Input URL ({1})", MyChannel.Input.Endpoints.Count == 2 ? stringnameurl[i] : "", endpoint.Protocol), endpoint.Url);
                 if (MyChannel.Input.StreamingProtocol == StreamingProtocol.FragmentedMP4)
                 {
-                    DGChannel.Rows.Add(string.Format("Input URL ({0}, SSL)", endpoint.Protocol), endpoint.Url.ToString().Replace("http://", "https://"));
+                    DGChannel.Rows.Add(string.Format("{0}Input URL ({1}, SSL)", MyChannel.Input.Endpoints.Count == 2 ? stringnameurl[i] : "", endpoint.Protocol), endpoint.Url.ToString().Replace("http://", "https://"));
                 }
+                i++;
             }
             foreach (var endpoint in MyChannel.Preview.Endpoints)
             {
@@ -323,5 +355,35 @@ namespace AMSExplorer
             numericUpDownHLSFragPerSeg.Enabled = checkBoxHLSFragPerSeg.Checked;
 
         }
+
+        private void buttonAllowAllInputIP_Click(object sender, EventArgs e)
+        {
+            InputEndpointSettingList.Clear();
+            InputEndpointSettingList.Add(new IPRange() { Name = "default", Address = IPAddress.Parse("0.0.0.0"), SubnetPrefixLength = 0 });
+            checkBoxInputSet.Checked = true;
+        }
+
+        private void buttonAllowAllPreviewIP_Click(object sender, EventArgs e)
+        {
+            checkBoxPreviewSet.Checked = false;
+            PreviewEndpointSettingList.Clear();
+        }
+
+
+
+        private void tabPage4_Enter(object sender, EventArgs e)
+        {
+            if (MyChannel.State == ChannelState.Running && MyChannel.Preview.Endpoints.FirstOrDefault().Url.AbsoluteUri != null)
+            {
+                string myurl = AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayerFrame, Urlstr: MyChannel.Preview.Endpoints.FirstOrDefault().Url.ToString(), DoNotRewriteURL: true, context: MyContext, formatamp: AzureMediaPlayerFormats.Smooth, technology: AzureMediaPlayerTechnologies.Silverlight, launchbrowser: false);
+                webBrowserPreview.Url = new Uri(myurl);
+            }
+        }
+
+        private void tabPage4_Leave(object sender, EventArgs e)
+        {
+            webBrowserPreview.Url = null;
+        }
     }
+
 }

@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="StreamingEndpointInformation.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -122,6 +121,8 @@ namespace AMSExplorer
             }
         }
 
+        
+
         public string GetOriginClientPolicy
         {
             get { return (checkBoxclientpolicy.Checked) ? textBoxClientPolicy.Text : null; }
@@ -142,18 +143,18 @@ namespace AMSExplorer
 
 
 
-        private void OriginInformation_Load(object sender, EventArgs e)
+        private void StreamingEndpointInformation_Load(object sender, EventArgs e)
         {
             labelOriginName.Text += MyOrigin.Name;
             hostnamelink.Links.Add(new LinkLabel.Link(0, hostnamelink.Text.Length, "http://msdn.microsoft.com/en-us/library/azure/dn783468.aspx"));
             DGOrigin.ColumnCount = 2;
-
             // asset info
 
             DGOrigin.Columns[0].DefaultCellStyle.BackColor = Color.Gainsboro;
             DGOrigin.Rows.Add("Name", MyOrigin.Name);
             DGOrigin.Rows.Add("Id", MyOrigin.Id);
             DGOrigin.Rows.Add("State", (StreamingEndpointState)MyOrigin.State);
+            DGOrigin.Rows.Add("CDN Enabled", MyOrigin.CdnEnabled);
             DGOrigin.Rows.Add("Created", ((DateTime)MyOrigin.Created).ToLocalTime());
             DGOrigin.Rows.Add("Last Modified", ((DateTime)MyOrigin.LastModified).ToLocalTime());
             DGOrigin.Rows.Add("Description", MyOrigin.Description);
@@ -169,6 +170,9 @@ namespace AMSExplorer
             }
             dataGridViewCustomHostname.DataSource = CustomHostNamesList;
 
+            // AZURE CDN
+             panelCustomHostnames.Enabled = panelStreamingAllowedIP.Enabled = panelAkamai.Enabled = !MyOrigin.CdnEnabled;
+             labelcdn.Visible = MyOrigin.CdnEnabled;
 
             if (MyOrigin.ScaleUnits != null)
             {
@@ -314,13 +318,13 @@ namespace AMSExplorer
 
         private void checkBoxcrossdomains_CheckedChanged_1(object sender, EventArgs e)
         {
-            textBoxCrossDomPolicy.Enabled = buttonAddExampleCrossDomainPolicy.Enabled =checkBoxcrossdomain.Checked;
+            textBoxCrossDomPolicy.Enabled = buttonAddExampleCrossDomainPolicy.Enabled = checkBoxcrossdomain.Checked;
         }
 
         private void checkBoxStreamingIPlistSet_CheckedChanged(object sender, EventArgs e)
         {
             dataGridViewIP.Enabled = buttonAddIP.Enabled = buttonDelIP.Enabled = checkBoxStreamingIPlistSet.Checked;
-             }
+        }
 
         private void checkBoxAkamai_CheckedChanged(object sender, EventArgs e)
         {
@@ -353,6 +357,24 @@ namespace AMSExplorer
         private void buttonAddExampleCrossDomainPolicy_Click(object sender, EventArgs e)
         {
             textBoxCrossDomPolicy.Text = File.ReadAllText(Path.Combine(Mainform._configurationXMLFiles, @"CrossDomainPolicy.xml"));
+        }
+
+        private void numericUpDownRU_ValueChanged(object sender, EventArgs e)
+        {
+         
+           
+        }
+
+
+        private void tabPage2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void buttonAllowAllStreamingIP_Click(object sender, EventArgs e)
+        {
+            checkBoxStreamingIPlistSet.Checked = false;
+            endpointSettingList.Clear();
         }
     }
 }

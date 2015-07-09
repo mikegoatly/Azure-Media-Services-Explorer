@@ -1,19 +1,19 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="ManagementREST.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,46 +35,21 @@ namespace AMSExplorer
     class ManagementRESTAPIHelper
     {
         public string Endpoint { get; set; }
-        public string CertThumbprint { get; set; }
+        public string CertBody { get; set; }
         public string SubscriptionId { get; set; }
 
-        public ManagementRESTAPIHelper(string endpoint, string thumbprint, string subscriptionID)
+        public StringBuilder stringBuilderLog = new StringBuilder();
+
+        public ManagementRESTAPIHelper(string endpoint, string certBody, string subscriptionID)
         {
             Endpoint = endpoint;
-            CertThumbprint = thumbprint;
+            CertBody = certBody;
             SubscriptionId = subscriptionID;
         }
 
         private X509Certificate2 GetClientCertificate()
         {
-            List<StoreLocation> locations = new List<StoreLocation> 
-        { 
-            StoreLocation.CurrentUser, 
-            StoreLocation.LocalMachine 
-        };
-
-            foreach (var location in locations)
-            {
-                X509Store store = new X509Store("My", location);
-                try
-                {
-                    store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-                    X509Certificate2Collection certificates = store.Certificates.Find(
-                        X509FindType.FindByThumbprint, CertThumbprint, false);
-                    if (certificates.Count == 1)
-                    {
-                        return certificates[0];
-                    }
-                }
-                finally
-                {
-                    store.Close();
-                }
-            }
-
-            throw new ArgumentException(string.Format(
-                "A Certificate with thumbprint '{0}' could not be located.",
-                CertThumbprint));
+            return new X509Certificate2(Convert.FromBase64String(CertBody));
         }
 
 
@@ -183,15 +158,17 @@ namespace AMSExplorer
             try
             {
                 var clientCert = GetClientCertificate();
+                stringBuilderLog.AppendLine("..Called GetClientCertificate");
 
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(string.Format("{0}/{1}/services/mediaservices/Accounts/{2}/StorageAccounts",
-                    Endpoint, SubscriptionId, accountInfo.AccountName));
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(string.Format("{0}/{1}/services/mediaservices/Accounts/{2}/StorageAccounts", Endpoint, SubscriptionId, accountInfo.AccountName));
                 request.Method = "POST";
                 request.ContentType = "application/json; charset=utf-8";
                 request.Headers.Add("x-ms-version", "2011-10-01");
                 request.Headers.Add("Accept-Encoding: gzip, deflate");
                 request.ClientCertificates.Add(clientCert);
-
+                stringBuilderLog.AppendLine("..HttpWebRequest built");
+                stringBuilderLog.AppendLine("..HttpWebRequest Request Uri: " + request.RequestUri.ToString());
+                
                 string jsonString;
 
                 using (MemoryStream ms = new MemoryStream())
@@ -200,25 +177,39 @@ namespace AMSExplorer
                             = new DataContractJsonSerializer(typeof(AttachStorageAccountRequest));
 
                     serializer.WriteObject(ms, storageaccount);
+                    stringBuilderLog.AppendLine("..memorystream serialized");
 
                     jsonString = Encoding.Default.GetString(ms.ToArray());
 
+                    stringBuilderLog.AppendLine("..jsonString created");
                 }
 
                 using (Stream requestStream = request.GetRequestStream())
                 {
                     var requestBytes = System.Text.Encoding.ASCII.GetBytes(jsonString);
-                    requestStream.Write(requestBytes, 0, requestBytes.Length);
-                    requestStream.Close();
-                }
+                    stringBuilderLog.AppendLine("..jsonString to bytes");
 
+                    requestStream.Write(requestBytes, 0, requestBytes.Length);
+                    stringBuilderLog.AppendLine("..requestStream.Write");
+
+                    requestStream.Close();
+                    stringBuilderLog.AppendLine("..requestStream.Close");
+
+                }
 
                 using (var response = (HttpWebResponse)request.GetResponse())
                 {
                     if (response.StatusCode == HttpStatusCode.NoContent)
-                        Console.WriteLine("The primary key was regenerated.");
-                }
+                        stringBuilderLog.AppendLine("..Response NoContent Status code - The primary key was regenerated.");
 
+                    stringBuilderLog.AppendLine("..Response Status Code: " + response.StatusCode.ToString());
+                    stringBuilderLog.AppendLine("..Response Status Description: " + response.StatusDescription);
+                    stringBuilderLog.AppendLine("..Response Uri: " + response.ResponseUri);
+                    stringBuilderLog.AppendLine("..Response Server: " + response.Server);
+                    stringBuilderLog.AppendLine("..Response ContentType: " + response.ContentType);
+                    stringBuilderLog.AppendLine("..Response ContentLength: " + response.ContentLength);
+                    stringBuilderLog.AppendLine("..Response ContentEncoding: " + response.ContentEncoding);
+                }
             }
             catch (Exception ex)
             { throw ex; }

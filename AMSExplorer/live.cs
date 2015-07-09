@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="live.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -51,14 +50,6 @@ using System.Runtime.Serialization;
 
 namespace AMSExplorer
 {
-    public static class OrderPrograms
-    {
-        public const string LastModified = "Last modified";
-        public const string Name = "Name";
-        public const string State = "State";
-    }
-
-
     public class DataGridViewLiveChannel : DataGridView
     {
         public int ChannelsPerPage
@@ -88,27 +79,27 @@ namespace AMSExplorer
             }
 
         }
-        public string OrderJobsInGrid
+        public string OrderItemsInGrid
         {
             get
             {
-                return _orderjobs;
+                return _orderitems;
             }
             set
             {
-                _orderjobs = value;
+                _orderitems = value;
             }
 
         }
-        public string FilterJobsState
+        public string FilterState
         {
             get
             {
-                return _filterjobsstate;
+                return _statefilter;
             }
             set
             {
-                _filterjobsstate = value;
+                _statefilter = value;
             }
 
         }
@@ -171,20 +162,22 @@ namespace AMSExplorer
         static private int _currentpage = 1;
         static private bool _initialized = false;
         static private bool _refreshedatleastonetime = false;
-        static string _orderjobs = OrderJobs.LastModifiedDescending;
-        static string _filterjobsstate = "All";
+        static string _orderitems = OrderJobs.LastModifiedDescending;
+        static string _statefilter = "All";
         static CloudMediaContext _context;
         static private CredentialsEntry _credentials;
         static private string _searchinname = "";
         static private string _timefilter = FilterTime.LastWeek;
         static BackgroundWorker WorkerRefreshChannels;
+        static Bitmap EncodingImage = Bitmaps.encoding;
+        public string _encoded = "Encoding";
 
-        public void Init(CredentialsEntry credentials)
+        public void Init(CredentialsEntry credentials, CloudMediaContext context)
         {
             IEnumerable<ChannelEntry> channelquery;
             _credentials = credentials;
 
-            _context = Program.ConnectAndGetNewContext(_credentials);
+            _context = context;
             channelquery = from c in _context.Channels
                            orderby c.LastModified descending
                            select new ChannelEntry
@@ -192,18 +185,44 @@ namespace AMSExplorer
                                Name = c.Name,
                                Id = c.Id,
                                Description = c.Description,
-                               InputProtocol = c.Input.StreamingProtocol,
-                               IngestUrl = c.Input.Endpoints.FirstOrDefault().Url,
+                               InputProtocol = string.Format("{0} ({1})", Program.ReturnNameForProtocol(c.Input.StreamingProtocol), c.Input.Endpoints.Count),
+                               Encoding = c.EncodingType != ChannelEncodingType.None ? EncodingImage : null,
+                               InputUrl = c.Input.Endpoints.FirstOrDefault().Url,
                                PreviewUrl = c.Preview.Endpoints.FirstOrDefault().Url,
                                State = c.State,
                                LastModified = c.LastModified.ToLocalTime()
-
                            };
 
+
+            DataGridViewCellStyle cellstyle = new DataGridViewCellStyle()
+            {
+                NullValue = null,
+                Alignment = DataGridViewContentAlignment.MiddleCenter
+            };
+            DataGridViewImageColumn imageCol = new DataGridViewImageColumn()
+            {
+                DefaultCellStyle = cellstyle,
+                Name = _encoded,
+                DataPropertyName = _encoded,
+            };
+            this.Columns.Add(imageCol);
 
             BindingList<ChannelEntry> MyObservJobInPage = new BindingList<ChannelEntry>(channelquery.Take(0).ToList());
             this.DataSource = MyObservJobInPage;
             this.Columns["Id"].Visible = Properties.Settings.Default.DisplayLiveChannelIDinGrid;
+            this.Columns["InputUrl"].HeaderText = "Primary Input Url";
+            this.Columns["InputUrl"].Width = 140;
+            this.Columns["InputProtocol"].HeaderText = "Input Protocol (input nb)";
+            this.Columns["InputProtocol"].Width = 160;
+            this.Columns["PreviewUrl"].Width = 120;
+
+            this.Columns[_encoded].DisplayIndex = this.ColumnCount - 3;
+            this.Columns[_encoded].DefaultCellStyle.NullValue = null;
+            this.Columns[_encoded].HeaderText = "Cloud Encoding";
+            this.Columns[_encoded].Width = 100;
+            this.Columns["LastModified"].Width = 140;
+            this.Columns["State"].Width = 75;
+            this.Columns["Description"].Width = 110;
 
             WorkerRefreshChannels = new BackgroundWorker();
             WorkerRefreshChannels.WorkerSupportsCancellation = true;
@@ -247,8 +266,6 @@ namespace AMSExplorer
                     _MyObservChannels[index].LastModified = channel.LastModified.ToLocalTime();
                     this.Refresh();
                 }
-
-
             }
         }
 
@@ -296,50 +313,109 @@ namespace AMSExplorer
             this.BeginInvoke(new Action(() => this.FindForm().Cursor = Cursors.WaitCursor));
             _context = context;
 
-
             IEnumerable<ChannelEntry> channelquery;
-            channels = context.Channels;
 
-            _context = context;
-            _pagecount = (int)Math.Ceiling(((double)channels.Count()) / ((double)_channelsperpage));
-            if (_pagecount == 0) _pagecount = 1; // no asset but one page
+            int days = FilterTime.ReturnNumberOfDays(_timefilter);
+            channels = (days == -1) ? context.Channels : context.Channels.Where(a => (a.LastModified > (DateTime.UtcNow.Add(-TimeSpan.FromDays(days)))));
 
-            if (pagetodisplay < 1) pagetodisplay = 1;
-            if (pagetodisplay > _pagecount) pagetodisplay = _pagecount;
-            _currentpage = pagetodisplay;
-
-            try
+            if (!string.IsNullOrEmpty(_searchinname))
             {
-                int c = channels.Count();
-            }
-            catch (Exception e)
-            {
-                MessageBox.Show("There is a problem when connecting to Azure Media Services. Application will close. " + e.Message);
-                Environment.Exit(0);
+                string searchlower = _searchinname.ToLower();
+                channels = channels.Where(c => (c.Name.ToLower().Contains(searchlower) || c.Id.ToLower().Contains(searchlower)));
             }
 
-            channelquery = from c in channels
-                           orderby c.LastModified descending
-                           select new ChannelEntry
-                           {
-                               Name = c.Name,
-                               Id = c.Id,
-                               Description = c.Description,
-                               InputProtocol = c.Input.StreamingProtocol,
-                               IngestUrl = c.Input.Endpoints.FirstOrDefault().Url,
-                               PreviewUrl = c.Preview.Endpoints.FirstOrDefault().Url,
-                               State = c.State,
-                               LastModified = c.LastModified.ToLocalTime()
+            if (FilterState != "All")
+            {
+                channels = channels.Where(c => c.State == (ChannelState)Enum.Parse(typeof(ChannelState), _statefilter));
+            }
 
-                           };
+
+            switch (_orderitems)
+            {
+                case OrderChannels.LastModified:
+                    channelquery = from c in channels
+                                   orderby c.LastModified descending
+                                   select new ChannelEntry
+                                   {
+                                       Name = c.Name,
+                                       Id = c.Id,
+                                       Description = c.Description,
+                                       InputProtocol = string.Format("{0} ({1})", Program.ReturnNameForProtocol(c.Input.StreamingProtocol), c.Input.Endpoints.Count),
+                                       Encoding = c.EncodingType != ChannelEncodingType.None ? EncodingImage : null,
+                                       InputUrl = c.Input.Endpoints.FirstOrDefault().Url,
+                                       PreviewUrl = c.Preview.Endpoints.FirstOrDefault().Url,
+                                       State = c.State,
+                                       LastModified = c.LastModified.ToLocalTime()
+                                   };
+                    break;
+
+
+
+                case OrderChannels.Name:
+                    channelquery = from c in channels
+                                   orderby c.Name
+                                   select new ChannelEntry
+                                   {
+                                       Name = c.Name,
+                                       Id = c.Id,
+                                       Description = c.Description,
+                                       InputProtocol = string.Format("{0} ({1})", Program.ReturnNameForProtocol(c.Input.StreamingProtocol), c.Input.Endpoints.Count),
+                                       Encoding = c.EncodingType != ChannelEncodingType.None ? EncodingImage : null,
+                                       InputUrl = c.Input.Endpoints.FirstOrDefault().Url,
+                                       PreviewUrl = c.Preview.Endpoints.FirstOrDefault().Url,
+                                       State = c.State,
+                                       LastModified = c.LastModified.ToLocalTime()
+                                   };
+                    break;
+
+                case OrderChannels.State:
+                    channelquery = from c in channels
+                                   orderby c.State
+                                   select new ChannelEntry
+                                   {
+                                       Name = c.Name,
+                                       Id = c.Id,
+                                       Description = c.Description,
+                                       InputProtocol = string.Format("{0} ({1})", Program.ReturnNameForProtocol(c.Input.StreamingProtocol), c.Input.Endpoints.Count),
+                                       Encoding = c.EncodingType != ChannelEncodingType.None ? EncodingImage : null,
+                                       InputUrl = c.Input.Endpoints.FirstOrDefault().Url,
+                                       PreviewUrl = c.Preview.Endpoints.FirstOrDefault().Url,
+                                       State = c.State,
+                                       LastModified = c.LastModified.ToLocalTime()
+                                   };
+                    break;
+
+                default:
+                    channelquery = from c in channels
+                                   select new ChannelEntry
+                                   {
+                                       Name = c.Name,
+                                       Id = c.Id,
+                                       Description = c.Description,
+                                       InputProtocol = string.Format("{0} ({1})", Program.ReturnNameForProtocol(c.Input.StreamingProtocol), c.Input.Endpoints.Count),
+                                       Encoding = c.EncodingType != ChannelEncodingType.None ? EncodingImage : null,
+                                       InputUrl = c.Input.Endpoints.FirstOrDefault().Url,
+                                       PreviewUrl = c.Preview.Endpoints.FirstOrDefault().Url,
+                                       State = c.State,
+                                       LastModified = c.LastModified.ToLocalTime()
+                                   };
+                    break;
+            }
+
+            if ((!string.IsNullOrEmpty(_timefilter)) && _timefilter == FilterTime.First50Items)
+            {
+                channelquery = channelquery.Take(50);
+            }
+
             _MyObservChannels = new BindingList<ChannelEntry>(channelquery.ToList());
             _MyObservChannelthisPage = new BindingList<ChannelEntry>(_MyObservChannels.Skip(_channelsperpage * (_currentpage - 1)).Take(_channelsperpage).ToList());
             this.BeginInvoke(new Action(() => this.DataSource = _MyObservChannelthisPage));
             _refreshedatleastonetime = true;
 
             this.BeginInvoke(new Action(() => this.FindForm().Cursor = Cursors.Default));
-
         }
+
+
     }
 
     public class DataGridViewLiveProgram : DataGridView
@@ -482,12 +558,12 @@ namespace AMSExplorer
         public string _published = "Published";
         static Bitmap Streaminglocatorimage = Bitmaps.streaming_locator;
 
-        public void Init(CredentialsEntry credentials)
+        public void Init(CredentialsEntry credentials, CloudMediaContext context)
         {
             IEnumerable<ProgramEntry> programquery;
             _credentials = credentials;
 
-            _context = Program.ConnectAndGetNewContext(_credentials);
+            _context = context;
             programquery = from c in _context.Programs
                            orderby c.LastModified descending
                            select new ProgramEntry
@@ -524,6 +600,9 @@ namespace AMSExplorer
             this.Columns[_published].DisplayIndex = this.ColumnCount - 3;
             this.Columns[_published].DefaultCellStyle.NullValue = null;
             this.Columns[_published].HeaderText = _published;
+            this.Columns["LastModified"].Width = 130;
+            this.Columns["Description"].Width = 150;
+            this.Columns["ArchiveWindowLength"].Width = 130;
 
             WorkerRefreshChannels = new BackgroundWorker();
             WorkerRefreshChannels.WorkerSupportsCancellation = true;
@@ -630,38 +709,14 @@ namespace AMSExplorer
             _context = context;
 
             IEnumerable<ProgramEntry> programquery;
+            int days = FilterTime.ReturnNumberOfDays(_timefilter);
 
-            int days = -1;
-            if (_timefilter != string.Empty && _timefilter != null && _timefilter != FilterTime.All)
-            {
-                switch (_timefilter)
-                {
-                    case FilterTime.LastDay:
-                        days = 1;
-                        break;
-                    case FilterTime.LastWeek:
-                        days = 7;
-                        break;
-                    case FilterTime.LastMonth:
-                        days = 30;
-                        break;
-                    case FilterTime.LastYear:
-                        days = 365;
-                        break;
-
-                    default:
-                        break;
-
-                }
-
-            }
-            programs = (days == -1) ? context.Programs : context.Programs.Where(a => (a.LastModified > (DateTime.UtcNow.Add(-TimeSpan.FromDays(30)))));
-
+            programs = (days == -1) ? context.Programs : context.Programs.Where(a => (a.LastModified > (DateTime.UtcNow.Add(-TimeSpan.FromDays(days)))));
 
             if (!string.IsNullOrEmpty(_searchinname))
             {
                 string searchlower = _searchinname.ToLower();
-                programs = programs.Where(p => (p.Name.ToLower().Contains(searchlower) || p.Id.ToLower().Contains(searchlower)));
+                programs = programs.Where(p => (p.Name.ToLower().Contains(searchlower) || p.Id.ToLower().Contains(searchlower) || p.Asset.Id.ToLower().Contains(searchlower)));
             }
 
             if (FilterState != "All")
@@ -763,6 +818,154 @@ namespace AMSExplorer
         }
     }
 
+    public static class OrderPrograms
+    {
+        public const string LastModified = "Last modified";
+        public const string Name = "Name";
+        public const string State = "State";
+    }
+
+    public static class OrderChannels
+    {
+        public const string LastModified = "Last modified";
+        public const string Name = "Name";
+        public const string State = "State";
+    }
+    public class ChannelInfo
+    {
+        public static async Task<IOperation> ChannelExecuteOperationAsync(Func<Task<IOperation>> fCall, IChannel channel, string strStatusSuccess, CloudMediaContext _context, Mainform mainform, DataGridViewLiveChannel dataGridViewChannelsV = null) //used for all except creation 
+        {
+            IOperation operation = null;
+
+            try
+            {
+                var state = channel.State;
+                var STask = fCall();
+                operation = await STask;
+
+                while (operation.State == OperationState.InProgress)
+                {
+                    //refresh the operation
+                    operation = _context.Operations.GetOperation(operation.Id);
+                    // refresh the channel
+                    IChannel channelR = _context.Channels.Where(c => c.Id == channel.Id).FirstOrDefault();
+                    if (channelR != null && state != channelR.State)
+                    {
+                        state = channelR.State;
+                        if (dataGridViewChannelsV != null)
+                            dataGridViewChannelsV.BeginInvoke(new Action(() => dataGridViewChannelsV.RefreshChannel(channelR)), null);
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                }
+                if (operation.State == OperationState.Succeeded)
+                {
+                    mainform.TextBoxLogWriteLine("Channel '{0}' {1}.", channel.Name, strStatusSuccess);
+                }
+                else
+                {
+                    mainform.TextBoxLogWriteLine("Channel '{0}' NOT {1}. (Error {2})", channel.Name, strStatusSuccess, operation.ErrorCode, true);
+                    mainform.TextBoxLogWriteLine("Error message : {0}", operation.ErrorMessage, true);
+                }
+                if (dataGridViewChannelsV != null) dataGridViewChannelsV.BeginInvoke(new Action(() => dataGridViewChannelsV.RefreshChannel(channel)), null);
+            }
+            catch (Exception ex)
+            {
+                mainform.TextBoxLogWriteLine("Error with channel '{0}' : {1}", channel.Name, Program.GetErrorMessage(ex), true);
+            }
+            return operation;
+        }
+
+
+
+
+        public static async Task<IOperation> ChannelExecuteOperationAsync(Func<TimeSpan, int, bool, Task<IOperation>> fCall, TimeSpan ts, int i, bool b, IChannel channel, string strStatusSuccess, CloudMediaContext _context, Mainform mainform, DataGridViewLiveChannel dataGridViewChannelsV = null) //used for all except creation 
+        {
+            IOperation operation = null;
+
+            try
+            {
+                var state = channel.State;
+                var STask = fCall(ts, i, b);
+                operation = await STask;
+
+                while (operation.State == OperationState.InProgress)
+                {
+                    //refresh the operation
+                    operation = _context.Operations.GetOperation(operation.Id);
+                    // refresh the channel
+                    IChannel channelR = _context.Channels.Where(c => c.Id == channel.Id).FirstOrDefault();
+                    if (channelR != null && state != channelR.State)
+                    {
+                        state = channelR.State;
+                        if (dataGridViewChannelsV != null)
+                            dataGridViewChannelsV.BeginInvoke(new Action(() => dataGridViewChannelsV.RefreshChannel(channelR)), null);
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                }
+                if (operation.State == OperationState.Succeeded)
+                {
+                    mainform.TextBoxLogWriteLine("Channel '{0}' {1}.", channel.Name, strStatusSuccess);
+                }
+                else
+                {
+                    mainform.TextBoxLogWriteLine("Channel '{0}' NOT {1}. (Error {2})", channel.Name, strStatusSuccess, operation.ErrorCode, true);
+                    mainform.TextBoxLogWriteLine("Error message : {0}", operation.ErrorMessage, true);
+                }
+                if (dataGridViewChannelsV != null) dataGridViewChannelsV.BeginInvoke(new Action(() => dataGridViewChannelsV.RefreshChannel(channel)), null);
+            }
+            catch (Exception ex)
+            {
+                mainform.TextBoxLogWriteLine("Error with channel '{0}' : {1}", channel.Name, Program.GetErrorMessage(ex), true);
+            }
+            return operation;
+        }
+
+
+
+
+        public static async Task<IOperation> ChannelExecuteOperationAsync(Func<TimeSpan, string, Task<IOperation>> fCall, TimeSpan ts, string s, IChannel channel, string strStatusSuccess, CloudMediaContext _context, Mainform mainform, DataGridViewLiveChannel dataGridViewChannelsV = null) //used for all except creation 
+        {
+            IOperation operation = null;
+
+            try
+            {
+                var state = channel.State;
+                var STask = fCall(ts, s);
+                operation = await STask;
+
+                while (operation.State == OperationState.InProgress)
+                {
+                    //refresh the operation
+                    operation = _context.Operations.GetOperation(operation.Id);
+                    // refresh the channel
+                    IChannel channelR = _context.Channels.Where(c => c.Id == channel.Id).FirstOrDefault();
+                    if (channelR != null && state != channelR.State)
+                    {
+                        state = channelR.State;
+                        if (dataGridViewChannelsV != null)
+                            dataGridViewChannelsV.BeginInvoke(new Action(() => dataGridViewChannelsV.RefreshChannel(channelR)), null);
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                }
+                if (operation.State == OperationState.Succeeded)
+                {
+                    mainform.TextBoxLogWriteLine("Channel '{0}' {1}.", channel.Name, strStatusSuccess);
+                }
+                else
+                {
+                    mainform.TextBoxLogWriteLine("Channel '{0}' NOT {1}. (Error {2})", channel.Name, strStatusSuccess, operation.ErrorCode, true);
+                    mainform.TextBoxLogWriteLine("Error message : {0}", operation.ErrorMessage, true);
+                }
+                if (dataGridViewChannelsV != null) dataGridViewChannelsV.BeginInvoke(new Action(() => dataGridViewChannelsV.RefreshChannel(channel)), null);
+            }
+            catch (Exception ex)
+            {
+                mainform.TextBoxLogWriteLine("Error with channel '{0}' : {1}", channel.Name, Program.GetErrorMessage(ex), true);
+            }
+            return operation;
+        }
+    }
+
 
     public class ChannelEntry
     {
@@ -772,8 +975,9 @@ namespace AMSExplorer
         public ChannelState State { get; set; }
         public DateTime LastModified { get; set; }
         public string Description { get; set; }
-        public StreamingProtocol InputProtocol { get; set; }
-        public Uri IngestUrl { get; set; }
+        public string InputProtocol { get; set; }
+        public Bitmap Encoding { get; set; }
+        public Uri InputUrl { get; set; }
         public Uri PreviewUrl { get; set; }
     }
 
@@ -860,6 +1064,7 @@ namespace AMSExplorer
                         .StreamingEndpoints
                         .AsEnumerable()
                           .Where(o => (o.State == StreamingEndpointState.Running) && (o.ScaleUnits > 0))
+                          .OrderByDescending(o => o.CdnEnabled)
                         .Select(
                             o =>
                                 template.BindByPosition(new Uri("http://" + o.HostName), l.ContentAccessComponent,

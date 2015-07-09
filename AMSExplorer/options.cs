@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="options.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -60,9 +59,15 @@ namespace AMSExplorer
             Properties.Settings.Default.DefaultLocatorDurationDays = (int)numericUpDownLocatorDuration.Value;
             Properties.Settings.Default.DefaultTokenDuration = (int)numericUpDownTokenDuration.Value;
             Properties.Settings.Default.AMEPrice = numericUpDownAMEPrice.Value;
+            Properties.Settings.Default.AMEPremiumWorkflowPreviewPrice = numericUpDownAMEPremiumWorkflowPrice.Value;
             Properties.Settings.Default.LegacyEncodingPrice = numericUpDownLegacyEncodingPrice.Value;
             Properties.Settings.Default.IndexingPrice = numericUpDownIndexingPrice.Value;
             Properties.Settings.Default.Currency = textBoxCurrency.Text;
+
+            Properties.Settings.Default.ffmpegPath = textBoxffmpegPath.Text;
+            Properties.Settings.Default.VLCPath = textBoxVLCPath.Text;
+
+
             Program.SaveAndProtectUserConfig();
         }
 
@@ -93,11 +98,18 @@ namespace AMSExplorer
             numericUpDownLocatorDuration.Value = 365;
             numericUpDownTokenDuration.Value = 60;
             numericUpDownAMEPrice.Value = ((decimal)1.99);
+            numericUpDownAMEPremiumWorkflowPrice.Value = ((decimal)1.99);
             numericUpDownLegacyEncodingPrice.Value = ((decimal)1.39);
             numericUpDownIndexingPrice.Value = ((decimal)10);
 
+            textBoxffmpegPath.Text = @"%programfiles32%\ffmpeg\bin";
+            textBoxVLCPath.Text = @"%programfiles32%\VideoLAN\VLC";
+
             Properties.Settings.Default.WAMEPresetXMLFilesCurrentFolder = Application.StartupPath + Constants.PathAMEFiles; // we reset the XML files folders
+            Properties.Settings.Default.AMEStandardPresetXMLFilesCurrentFolder = Application.StartupPath + Constants.PathAMEStdFiles; // we reset the XML files folders
             Properties.Settings.Default.PremiumWorkflowPresetXMLFilesCurrentFolder = Application.StartupPath + Constants.PathPremiumWorkflowFiles;
+            Properties.Settings.Default.DefaultSlateCurrentFolder = Application.StartupPath + Constants.PathDefaultSlateJPG;
+      
             Program.SaveAndProtectUserConfig();
         }
 
@@ -128,11 +140,15 @@ namespace AMSExplorer
             numericUpDownPriority.Value = Properties.Settings.Default.DefaultJobPriority;
             numericUpDownLocatorDuration.Value = Properties.Settings.Default.DefaultLocatorDurationDays;
             numericUpDownTokenDuration.Value = Properties.Settings.Default.DefaultTokenDuration;
-    
+
             textBoxCurrency.Text = Properties.Settings.Default.Currency;
             numericUpDownAMEPrice.Value = Properties.Settings.Default.AMEPrice;
+            numericUpDownAMEPremiumWorkflowPrice.Value = Properties.Settings.Default.AMEPremiumWorkflowPreviewPrice;
             numericUpDownLegacyEncodingPrice.Value = Properties.Settings.Default.LegacyEncodingPrice;
             numericUpDownIndexingPrice.Value = Properties.Settings.Default.IndexingPrice;
+
+            textBoxffmpegPath.Text = Properties.Settings.Default.ffmpegPath;
+            textBoxVLCPath.Text = Properties.Settings.Default.VLCPath;
 
             amspriceslink.Links.Add(new LinkLabel.Link(0, amspriceslink.Text.Length, "http://azure.microsoft.com/en-us/pricing/details/media-services/"));
 

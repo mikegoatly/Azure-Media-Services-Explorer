@@ -346,5 +346,89 @@ namespace AMSExplorer.Properties {
                 this["DefaultTokenDuration"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1.99")]
+        public decimal AMEPremiumWorkflowPreviewPrice {
+            get {
+                return ((decimal)(this["AMEPremiumWorkflowPreviewPrice"]));
+            }
+            set {
+                this["AMEPremiumWorkflowPreviewPrice"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("%programfiles32%\\ffmpeg\\bin")]
+        public string ffmpegPath {
+            get {
+                return ((string)(this["ffmpegPath"]));
+            }
+            set {
+                this["ffmpegPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("%programfiles32%\\VideoLAN\\VLC")]
+        public string VLCPath {
+            get {
+                return ((string)(this["VLCPath"]));
+            }
+            set {
+                this["VLCPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Microphone (High Definition Audio Device)")]
+        public string DirectShowAudioDevice {
+            get {
+                return ((string)(this["DirectShowAudioDevice"]));
+            }
+            set {
+                this["DirectShowAudioDevice"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Webcam (High Definition Audio Device)")]
+        public string DirectShowVideoDevice {
+            get {
+                return ((string)(this["DirectShowVideoDevice"]));
+            }
+            set {
+                this["DirectShowVideoDevice"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string DefaultSlateCurrentFolder {
+            get {
+                return ((string)(this["DefaultSlateCurrentFolder"]));
+            }
+            set {
+                this["DefaultSlateCurrentFolder"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AMEStandardPresetXMLFilesCurrentFolder {
+            get {
+                return ((string)(this["AMEStandardPresetXMLFilesCurrentFolder"]));
+            }
+            set {
+                this["AMEStandardPresetXMLFilesCurrentFolder"] = value;
+            }
+        }
     }
 }

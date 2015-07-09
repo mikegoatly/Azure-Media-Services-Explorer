@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="StreamingEndpoint.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -54,10 +53,10 @@ namespace AMSExplorer
         public string Name { get; set; }
         public string Id { get; set; }
         public StreamingEndpointState State { get; set; }
-        public DateTime LastModified { get; set; }
+        public string CDN { get; set; }
         public string Description { get; set; }
         public int? ScaleUnits { get; set; }
-
+        public DateTime LastModified { get; set; }
 
     }
 
@@ -181,12 +180,12 @@ namespace AMSExplorer
         static private string _timefilter = FilterTime.LastWeek;
         static BackgroundWorker WorkerRefreshStreamingEndpoints;
 
-        public void Init(CredentialsEntry credentials)
+        public void Init(CredentialsEntry credentials, CloudMediaContext context)
         {
             IEnumerable<StreamingEndpointEntry> originquery;
             _credentials = credentials;
 
-            _context = Program.ConnectAndGetNewContext(_credentials);
+            _context = context;
             originquery = from o in _context.StreamingEndpoints
                           orderby o.LastModified descending
                           select new StreamingEndpointEntry
@@ -197,14 +196,20 @@ namespace AMSExplorer
                               ScaleUnits = o.ScaleUnits,
                               State = o.State,
                               LastModified = o.LastModified.ToLocalTime()
-
+                              
                           };
 
-       
+
             BindingList<StreamingEndpointEntry> MyObservOriginInPage = new BindingList<StreamingEndpointEntry>(originquery.Take(0).ToList());
             this.DataSource = MyObservOriginInPage;
             this.Columns["Id"].Visible = Properties.Settings.Default.DisplayOriginIDinGrid;
-          
+            this.Columns["Name"].Width = 300;
+            this.Columns["State"].Width = 100;
+            this.Columns["CDN"].Width = 100;
+            this.Columns["Description"].Width = 230;
+            this.Columns["ScaleUnits"].Width = 100;
+            this.Columns["LastModified"].Width = 150;
+
             WorkerRefreshStreamingEndpoints = new BackgroundWorker();
             WorkerRefreshStreamingEndpoints.WorkerSupportsCancellation = true;
             WorkerRefreshStreamingEndpoints.DoWork += new System.ComponentModel.DoWorkEventHandler(this.WorkerRefreshStreamingEndpoints_DoWork);
@@ -331,7 +336,7 @@ namespace AMSExplorer
                 Environment.Exit(0);
             }
 
-           
+
             switch (_orderstreamingendpoints)
             {
                 case OrderStreamingEndpoints.LastModified:
@@ -366,6 +371,7 @@ namespace AMSExplorer
                                 Name = c.Name,
                                 Id = c.Id,
                                 Description = c.Description,
+                                CDN = c.CdnEnabled ? "CDN" : string.Empty,
                                 ScaleUnits = c.ScaleUnits,
                                 State = c.State,
                                 LastModified = c.LastModified.ToLocalTime(),

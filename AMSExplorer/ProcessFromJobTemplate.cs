@@ -1,19 +1,18 @@
-﻿//----------------------------------------------------------------------- 
-// <copyright file="EncodingZenium.cs" company="Microsoft">Copyright (c) Microsoft Corporation. All rights reserved.</copyright> 
-// <license>
-// Azure Media Services Explorer Ver. 3.1
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-//  
-// http://www.apache.org/licenses/LICENSE-2.0 
-//  
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// </license> 
+﻿//----------------------------------------------------------------------------------------------
+//    Copyright 2015 Microsoft Corporation
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//---------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -45,21 +44,21 @@ namespace AMSExplorer
             get
             {
                 return listViewTemplates.GetSelectedJobTemplate;
-                /*
-                if (listViewTemplatesOld.SelectedItems.Count > 0)
-                {
-                    int indexid = columnHeaderJobTemplatetId.Index;
-                    IJobTemplate jobtemplate = _context.JobTemplates.Where(j => j.Id == listViewTemplatesOld.SelectedItems[0].SubItems[indexid].Text).FirstOrDefault();
-                    return jobtemplate;
-                }
-                else
-                {
-                    return null;
-                }
-                                                                * */
+
             }
         }
 
+        public JobOptionsVar JobOptions
+        {
+            get
+            {
+                return buttonJobOptions.GetSettings();
+            }
+            set
+            {
+                buttonJobOptions.SetSettings(value);
+            }
+        }
 
         public string ProcessingJobName
         {
@@ -82,17 +81,7 @@ namespace AMSExplorer
             }
         }
 
-        public int ProcessingPriority
-        {
-            get
-            {
-                return (int)numericUpDownPriority.Value;
-            }
-            set
-            {
-                numericUpDownPriority.Value = value;
-            }
-        }
+
 
         public ProcessFromJobTemplate(CloudMediaContext context, int numberselectedassets)
         {
@@ -101,6 +90,7 @@ namespace AMSExplorer
             _context = context;
             _numberselectedassets = numberselectedassets;
             labelWarning.Text = string.Empty;
+            buttonJobOptions.Initialize(_context);
         }
 
         private void buttonCancel_Click(object sender, EventArgs e)
@@ -125,7 +115,7 @@ namespace AMSExplorer
             listViewTemplates.LoadTemplates(_context);
         }
 
-     
+
 
         private void label1_Click(object sender, EventArgs e)
         {
@@ -136,22 +126,8 @@ namespace AMSExplorer
 
         private void buttonDeleteTemplate_Click(object sender, EventArgs e)
         {
-          /*  IJobTemplate jobtemp = SelectedJobTemplate;
-            if (jobtemp != null)
-            {
-                if (MessageBox.Show(string.Format("Do you want to delete the job template '{0}' ?", jobtemp.Name), "Job template deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    jobtemp.Delete();
-                    LoadTemplates();
-                }
-            }
-           * */
+
             listViewTemplates.DeleteSelectedTemplate();
         }
-
-
-
     }
-
-
 }
