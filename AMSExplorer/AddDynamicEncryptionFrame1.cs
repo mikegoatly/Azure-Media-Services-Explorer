@@ -36,7 +36,7 @@ namespace AMSExplorer
         {
             get
             {
-                if (radioButtonEnvelope.Checked)
+                if (radioButtonAESClearKey.Checked)
                 {
                     return AssetDeliveryPolicyType.DynamicEnvelopeEncryption;
                 }
@@ -44,7 +44,7 @@ namespace AMSExplorer
                 {
                     return AssetDeliveryPolicyType.DynamicCommonEncryption;
                 }
-                else if(radioButtonDecryptStorage.Checked)
+                else if (radioButtonDecryptStorage.Checked)
                 {
                     return AssetDeliveryPolicyType.NoDynamicEncryption;
                 }
@@ -59,7 +59,7 @@ namespace AMSExplorer
         {
             get
             {
-                return radioButtonEnvelope.Checked ? ContentKeyType.EnvelopeEncryption : ContentKeyType.CommonEncryption;
+                return radioButtonAESClearKey.Checked ? ContentKeyType.EnvelopeEncryption : ContentKeyType.CommonEncryption;
             }
         }
 
@@ -68,25 +68,57 @@ namespace AMSExplorer
         {
             get
             {
-                return ((checkBoxProtocolDASH.Checked ? AssetDeliveryProtocol.Dash : AssetDeliveryProtocol.None) | (checkBoxProtocolHLS.Checked ? AssetDeliveryProtocol.HLS : AssetDeliveryProtocol.None) | (checkBoxProtocolSmooth.Checked ? AssetDeliveryProtocol.SmoothStreaming : AssetDeliveryProtocol.None));
+                return (
+                    (checkBoxProtocolDASH.Checked ? AssetDeliveryProtocol.Dash : AssetDeliveryProtocol.None) 
+                    |
+                    (checkBoxProtocolHLS.Checked ? AssetDeliveryProtocol.HLS : AssetDeliveryProtocol.None)
+                    | 
+                    (checkBoxProtocolSmooth.Checked ? AssetDeliveryProtocol.SmoothStreaming : AssetDeliveryProtocol.None)
+                    |
+                    // progressive download only available for dyn decryption
+                    ((radioButtonDecryptStorage.Checked && checkBoxProtocolProgressiveDownload.Checked) ? AssetDeliveryProtocol.ProgressiveDownload : AssetDeliveryProtocol.None)
+                    );
             }
         }
 
-        public int GetNumberOfAuthorizationPolicyOptions // if 0, then no authorization policy. If > 0, then renturn the number of options
+        public string PlayReadyCustomAttributes
         {
             get
             {
-                if (radioButtonNoAuthPolicy.Checked)
+                if (checkBoxPlayReadyPackaging.Checked && !string.IsNullOrEmpty(textBoxCustomAttributes.Text))
                 {
-                    return 0;
+                    return textBoxCustomAttributes.Text;
                 }
                 else
                 {
-                    return (int)numericUpDownNbOptions.Value;
+                    return null;
                 }
             }
         }
 
+        public bool WidevinePackaging
+        {
+            get
+            {
+                return (checkBoxProtocolDASH.Checked && EnableDynEnc && !radioButtonNoDynEnc.Checked) ? checkBoxWidevinePackaging.Checked : false;
+            }
+        }
+
+        public bool PlayReadyPackaging
+        {
+            get
+            {
+                return EnableDynEnc ? checkBoxPlayReadyPackaging.Checked : false;
+            }
+        }
+
+        public bool EnableDynEnc
+        {
+            get
+            {
+                return checkBoxEnableDynEnc.Checked;
+            }
+        }
 
 
         private CloudMediaContext _context;
@@ -102,49 +134,49 @@ namespace AMSExplorer
 
         private void SetupDynEnc_Load(object sender, EventArgs e)
         {
-
         }
-
-
-
-
-        private void radioButtonEnvelope_CheckedChanged(object sender, EventArgs e)
-        {
-            if (radioButtonEnvelope.Checked) radioButtonDefineAuthPol.Checked = true;
-        }
-
-
 
 
         private void buttonOk_Click(object sender, EventArgs e)
         {
-
         }
 
 
         private void radioButtonDecryptStorage_CheckedChanged(object sender, EventArgs e)
         {
-            groupBoxAuthPol.Enabled = !radioButtonDecryptStorage.Checked;
-            // groupBoxAuthPol.Enabled = !radioButtonDecryptStorage.Checked;
+            panelPackaging.Visible = !radioButtonDecryptStorage.Checked;
+            checkBoxEnableDynEnc.Checked = true;
+            checkBoxEnableDynEnc.Visible = !radioButtonDecryptStorage.Checked;
+            checkBoxProtocolProgressiveDownload.Visible = radioButtonDecryptStorage.Checked;
         }
 
         private void radioButtonCENCKey_CheckedChanged(object sender, EventArgs e)
         {
-            radioButtonNoAuthPolicy.Enabled = radioButtonCENCKey.Checked;
-            /*
-                  radioButtonNoAuthPolicy.Enabled = radioButtonCENCKey.Checked;
-                  if (!radioButtonCENCKey.Checked && radioButtonNoAuthPolicy.Checked) // if not PlayReady mode, then let's uncheck no playreay lic server if it checked
-                  {
-                      radioButtonOpenAuthPolicy.Checked = true;
-                  }
-             * */
         }
 
         private void radioButtonNoDynEnc_CheckedChanged(object sender, EventArgs e)
         {
-            groupBoxDelPolProtocols.Enabled = !radioButtonNoDynEnc.Checked;
+            groupBoxDelPolProtocols.Visible = !radioButtonNoDynEnc.Checked;
         }
 
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            panelDynEnc.Enabled = checkBoxEnableDynEnc.Checked;
+        }
 
+        private void checkBoxPlayReadyPackaging_CheckedChanged(object sender, EventArgs e)
+        {
+            textBoxCustomAttributes.Enabled = checkBoxPlayReadyPackaging.Checked;
+        }
+
+        private void checkBoxProtocolDASH_CheckedChanged(object sender, EventArgs e)
+        {
+            checkBoxWidevinePackaging.Visible = checkBoxProtocolDASH.Checked;
+        }
+
+        private void radioButtonAESClearKey_CheckedChanged(object sender, EventArgs e)
+        {
+            panelPackaging.Visible = !radioButtonAESClearKey.Checked;
+        }
     }
 }

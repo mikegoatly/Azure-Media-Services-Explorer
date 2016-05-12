@@ -157,7 +157,7 @@ namespace AMSExplorer
                 {
                     ListViewItem item = new ListViewItem(file.Name, 0);
                     if (file.IsPrimary) item.ForeColor = Color.Blue;
-                    item.SubItems.Add(file.LastModified.ToLocalTime().ToString());
+                    item.SubItems.Add(file.LastModified.ToLocalTime().ToString("G"));
                     item.SubItems.Add(AssetInfo.FormatByteSize(file.ContentFileSize));
                     (listViewAssetFiles.Items.Add(item)).Selected = true;
                     listassetfiles.Add(file);
@@ -215,9 +215,6 @@ namespace AMSExplorer
             }
             cloudBlobClient = storageAccount.CreateCloudBlobClient();
             mediaBlobContainers = cloudBlobClient.ListContainers();
-
-
-
         }
 
         private void DoListBlobs(bool ResetSearch)
@@ -236,7 +233,7 @@ namespace AMSExplorer
                     if (BlobContainer.Name.Contains(textBoxSearch.Text))
                     {
                         ListViewItem item = new ListViewItem(Path.GetFileName(BlobContainer.Name), 0);
-                        item.SubItems.Add(BlobContainer.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString());
+                        item.SubItems.Add(BlobContainer.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString("G"));
                         listViewBlobs.Items.Add(item);
                         ListContainers.Add(BlobContainer);
                     }
@@ -251,7 +248,7 @@ namespace AMSExplorer
 
             listViewBlobs.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
             listViewBlobs.EndUpdate();
-            buttonUpload.Enabled = false;
+            buttonExport.Enabled = false;
 
         }
 
@@ -270,7 +267,7 @@ namespace AMSExplorer
                     CloudBlockBlob cloudBlockBlob = b as CloudBlockBlob;
                     string lastModified = "";
                     ListViewItem item = new ListViewItem(Path.GetFileName(b.Uri.ToString()), 0);
-                    lastModified = cloudBlockBlob.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString();
+                    lastModified = cloudBlockBlob.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString("G");
                     item.SubItems.Add(lastModified);
                     item.SubItems.Add(AssetInfo.FormatByteSize(cloudBlockBlob.Properties.Length));
                     listViewFiles.Items.Add(item);
@@ -338,7 +335,7 @@ namespace AMSExplorer
                 }
             }
             if (radioButtonSelectedContainer.Checked) iscontainerok = (listViewBlobs.SelectedIndices.Count > 0);
-            buttonUpload.Enabled = (listViewAssetFiles.SelectedItems.Count > 0 && iscontainerok);
+            buttonExport.Enabled = (listViewAssetFiles.SelectedItems.Count > 0 && iscontainerok);
         }
 
         private void radioButtonOtherStorage_CheckedChanged(object sender, EventArgs e)

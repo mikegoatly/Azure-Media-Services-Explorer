@@ -34,6 +34,7 @@ using System.Web;
 using Microsoft.WindowsAzure.MediaServices.Client.ContentKeyAuthorization;
 using Microsoft.WindowsAzure.MediaServices.Client.DynamicEncryption;
 using Microsoft.WindowsAzure.MediaServices.Client.Metadata;
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace AMSExplorer
 {
@@ -42,23 +43,20 @@ namespace AMSExplorer
         public IAsset myAsset;
         private string myAssetType;
         private CloudMediaContext myContext;
-        private MediaServiceContextForDynManifest myDynManifestContext;
         public IEnumerable<IStreamingEndpoint> myStreamingEndpoints;
         private ILocator tempLocator = null;
         private ILocator tempMetadaLocator = null;
         private IContentKeyAuthorizationPolicy myAuthPolicy = null;
         private Mainform myMainForm;
-        private List<Filter> globalFilters;
         private bool oktobuildlocator = false;
         private ManifestTimingData myassetmanifesttimingdata = null;
 
-        public AssetInformation(Mainform mainform, CloudMediaContext context, MediaServiceContextForDynManifest contextdynman)
+        public AssetInformation(Mainform mainform, CloudMediaContext context)
         {
             InitializeComponent();
             this.Icon = Bitmaps.Azure_Explorer_ico;
             myMainForm = mainform;
             myContext = context;
-            myDynManifestContext = contextdynman;
         }
 
         private void contextMenuStripDG_MouseClick(object sender, MouseEventArgs e)
@@ -75,7 +73,6 @@ namespace AMSExplorer
                 {
                     System.Windows.Forms.Clipboard.SetText(TreeViewLocators.SelectedNode.Text);
                 }
-
             }
         }
 
@@ -94,11 +91,11 @@ namespace AMSExplorer
                     {
                         case AssetInfo._smooth_legacy:
                         case AssetInfo._smooth:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.FlashAzurePage, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.FlashAzurePage, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, mainForm: myMainForm);
                             break;
 
                         case AssetInfo._dash:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.DASHAzurePage, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.DASHAzurePage, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, mainForm: myMainForm);
                             break;
 
                         default:
@@ -111,7 +108,6 @@ namespace AMSExplorer
         private void toolStripMenuItemPlaybackSilverlight_Click(object sender, EventArgs e)
         {
             DoSLPlayer();
-
         }
 
         private void DoSLPlayer()
@@ -125,13 +121,12 @@ namespace AMSExplorer
                     {
                         case AssetInfo._smooth_legacy:
                         case AssetInfo._smooth:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.SilverlightMonitoring, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.SilverlightMonitoring, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, mainForm: myMainForm);
                             break;
 
                         default:
                             break;
                     }
-
                 }
                 else
                 {
@@ -156,15 +151,13 @@ namespace AMSExplorer
                     switch (TreeViewLocators.SelectedNode.Parent.Text)
                     {
                         case AssetInfo._dash:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.DASHIFRefPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.DASHIFRefPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, mainForm: myMainForm);
                             break;
 
                         default:
                             break;
                     }
-
                 }
-
             }
         }
 
@@ -246,7 +239,7 @@ namespace AMSExplorer
                 // Root node's Parent property is null, so do check
                 if (TreeViewLocators.SelectedNode.Parent != null)
                 {
-                    AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.MP4AzurePage, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext);
+                    AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.MP4AzurePage, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, mainForm: myMainForm);
                 }
             }
         }
@@ -282,8 +275,15 @@ namespace AMSExplorer
                     size += file.ContentFileSize;
                 }
                 listViewFiles.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+                listViewFiles.Items[0].Selected = true;
                 listViewFiles.EndUpdate();
             }
+
+            // Generate manifest button
+            var mp4AssetFiles = myAsset.AssetFiles.ToList().Where(f => f.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase));
+            var ismAssetFiles = myAsset.AssetFiles.ToList().Where(f => f.Name.EndsWith(".ism", StringComparison.OrdinalIgnoreCase));
+            buttonGenerateManifest.Enabled = (ismAssetFiles.Count() == 0 && mp4AssetFiles.Count() > 0);
+
             return size;
         }
 
@@ -370,8 +370,8 @@ namespace AMSExplorer
             DGAsset.Rows.Add("AlternateId", myAsset.AlternateId);
             if (size != -1) DGAsset.Rows.Add("Size", AssetInfo.FormatByteSize(size));
             DGAsset.Rows.Add("State", (AssetState)myAsset.State);
-            DGAsset.Rows.Add("Created", ((DateTime)myAsset.Created).ToLocalTime());
-            DGAsset.Rows.Add("Last Modified", ((DateTime)myAsset.LastModified).ToLocalTime());
+            DGAsset.Rows.Add("Created", ((DateTime)myAsset.Created).ToLocalTime().ToString("G"));
+            DGAsset.Rows.Add("Last Modified", ((DateTime)myAsset.LastModified).ToLocalTime().ToString("G"));
             DGAsset.Rows.Add("Creation Options", (AssetCreationOptions)myAsset.Options);
 
             var program = myContext.Programs.Where(p => p.AssetId == myAsset.Id).FirstOrDefault();
@@ -380,35 +380,43 @@ namespace AMSExplorer
                 DGAsset.Rows.Add("Program Id", program.Id);
             }
 
-
             if (myAsset.State != AssetState.Deleted)
             {
                 DGAsset.Rows.Add("IsStreamable", myAsset.IsStreamable);
                 DGAsset.Rows.Add("SupportsDynamicEncryption", myAsset.SupportsDynamicEncryption);
-                DGAsset.Rows.Add("Uri", myAsset.Uri);
+                DGAsset.Rows.Add("Storage Url", myAsset.Uri);
                 DGAsset.Rows.Add("Storage Account Name", myAsset.StorageAccount.Name);
                 DGAsset.Rows.Add("Storage Account Byte used", AssetInfo.FormatByteSize(myAsset.StorageAccount.BytesUsed));
                 DGAsset.Rows.Add("Storage Account Is Default", myAsset.StorageAccount.IsDefault);
 
-                foreach (IAsset p_asset in myAsset.ParentAssets)
+                try
                 {
-                    DGAsset.Rows.Add("Parent asset", p_asset.Name);
-                    DGAsset.Rows.Add("Parent asset Id", p_asset.Id);
+                    foreach (IAsset p_asset in myAsset.ParentAssets)
+                    {
+                        DGAsset.Rows.Add("Parent asset", p_asset.Name);
+                        DGAsset.Rows.Add("Parent asset Id", p_asset.Id);
+                    }
+                }
+                catch
+                {
+                    DGAsset.Rows.Add("Parent asset(s)", "<error, deleted?>");
                 }
 
-                int i;
+
                 IStreamingEndpoint SESelected = AssetInfo.GetBestStreamingEndpoint(myContext);
 
                 foreach (var se in myStreamingEndpoints)
                 {
-                    i = comboBoxStreamingEndpoint.Items.Add(new Item(string.Format("{0} ({1}, {2} scale unit{3})", se.Name, se.State, se.ScaleUnits, se.ScaleUnits > 0 ? "s" : string.Empty), se.HostName));
+                    comboBoxStreamingEndpoint.Items.Add(new Item(string.Format("{0} ({1}, {2} scale unit{3})", se.Name, se.State, se.ScaleUnits, se.ScaleUnits > 1 ? "s" : string.Empty), se.HostName));
                     if (se.Name == SESelected.Name) comboBoxStreamingEndpoint.SelectedIndex = comboBoxStreamingEndpoint.Items.Count - 1;
+
+                    foreach (var custom in se.CustomHostNames)
+                    {
+                        comboBoxStreamingEndpoint.Items.Add(new Item(string.Format("{0} ({1}, {2} scale unit{3}) Custom hostname : {4}", se.Name, se.State, se.ScaleUnits, se.ScaleUnits > 1 ? "s" : string.Empty, custom), custom));
+                    }
                 }
-                //BuildLocatorsTree(); anywy, it will be built when set the index for the filter drop list
                 buttonUpload.Enabled = true;
             }
-
-            globalFilters = myDynManifestContext.ListGlobalFilters();
 
             DisplayAssetFilters();
             oktobuildlocator = true;
@@ -418,6 +426,9 @@ namespace AMSExplorer
 
         private void DisplayAssetFilters()
         {
+            // let's refresh the asset
+            myAsset = myContext.Assets.Where(a => a.Id == myAsset.Id).FirstOrDefault();
+            if (myAsset == null) return; // Error!
 
             dataGridViewFilters.ColumnCount = 7;
             dataGridViewFilters.Columns[0].HeaderText = "Name";
@@ -440,42 +451,54 @@ namespace AMSExplorer
             comboBoxLocatorsFilters.BeginUpdate();
             comboBoxLocatorsFilters.Items.Add(new Item(string.Empty, null));
 
-            List<AssetFilter> filters = myDynManifestContext.ListAssetFilters(myAsset);
-
-            if (filters.Count > 0 && myassetmanifesttimingdata == null)
+            if (myAsset.AssetFilters.Count() > 0 && myassetmanifesttimingdata == null)
             {
                 myassetmanifesttimingdata = AssetInfo.GetManifestTimingData(myAsset);
             }
 
-            foreach (var filter in filters)
+            foreach (var filter in myAsset.AssetFilters)
             {
                 string s = null;
                 string e = null;
                 string d = null;
                 string l = null;
-                
+
                 if (filter.PresentationTimeRange != null)
                 {
-                    double scale = Convert.ToDouble(filter.PresentationTimeRange.Timescale) / 10000000d;
-                    s = ReturnFilterTextWithOffSet(filter.PresentationTimeRange.StartTimestamp, myassetmanifesttimingdata.TimestampOffset, scale);
-                    e = ReturnFilterTextWithOffSet(filter.PresentationTimeRange.EndTimestamp, myassetmanifesttimingdata.TimestampOffset, scale);
-                    d = ReturnFilterTextWithOffSet(filter.PresentationTimeRange.PresentationWindowDuration, 0, scale);
-                    l = ReturnFilterTextWithOffSet(filter.PresentationTimeRange.LiveBackoffDuration, 0, scale);
+                    ulong? start = filter.PresentationTimeRange.StartTimestamp;
+                    ulong? end = filter.PresentationTimeRange.EndTimestamp;
+                    TimeSpan? dvr = filter.PresentationTimeRange.PresentationWindowDuration;
+                    TimeSpan? live = filter.PresentationTimeRange.LiveBackoffDuration;
+
+                    double dscale = (filter.PresentationTimeRange.Timescale != null) ?
+                        (double)filter.PresentationTimeRange.Timescale
+                        : (double)TimeSpan.TicksPerSecond;
+
+                    double dscaleoffset = (myassetmanifesttimingdata.TimeScale != null) ?
+                        (double)myassetmanifesttimingdata.TimeScale
+                        : (double)TimeSpan.TicksPerSecond;
+
+                    s = ReturnFilterTextWithOffSet(start, dscale, myassetmanifesttimingdata.TimestampOffset, dscaleoffset, "min");
+                    e = ReturnFilterTextWithOffSet(end, dscale, myassetmanifesttimingdata.TimestampOffset, dscaleoffset, "max");
+                    d = ReturnFilterText(dvr, "max");
+                    l = ReturnFilterText(live, "min");
                 }
                 int rowi = dataGridViewFilters.Rows.Add(filter.Name, filter.Id, filter.Tracks.Count, s, e, d, l);
 
                 // droplist
                 comboBoxLocatorsFilters.Items.Add(new Item("Asset filter  : " + filter.Name, filter.Name));
             }
-            globalFilters.ForEach(g => comboBoxLocatorsFilters.Items.Add(new Item("Global filter : " + g.Name, g.Name)));
+
+
+            myContext.Filters.ToList().ForEach(g => comboBoxLocatorsFilters.Items.Add(new Item("Global filter : " + g.Name, g.Name)));
             comboBoxLocatorsFilters.SelectedIndex = 0;
             comboBoxLocatorsFilters.EndUpdate();
         }
 
-        private static string ReturnFilterTextWithOffSet(string value, Int64 offset, double scale)
+        private static string ReturnFilterTextWithOffSet(string value, ulong offset, double scale)
         {
-            Int64 valueint = Int64.Parse(value);
-            if (valueint == long.MaxValue)
+            ulong valueint = ulong.Parse(value);
+            if (valueint == ulong.MaxValue)
             {
                 return "max";
             }
@@ -483,6 +506,35 @@ namespace AMSExplorer
             {
                 valueint -= offset;
                 return TimeSpan.FromTicks((long)(valueint / scale)).ToString(@"d\.hh\:mm\:ss");
+            }
+        }
+
+        private static string ReturnFilterTextWithOffSet(ulong? value, double scalevalue, ulong offset, double scaleoffset, string defaultwhennull)
+        {
+
+            if (value == null)
+            {
+                return defaultwhennull;
+            }
+            else
+            {
+                var value2 = (double)value / scalevalue;
+                var offset2 = (double)offset / scaleoffset;
+                value2 -= offset2;
+                return TimeSpan.FromSeconds(value2).ToString(@"d\.hh\:mm\:ss");
+            }
+        }
+
+        private static string ReturnFilterText(TimeSpan? value, string defaultwhennull)
+        {
+
+            if (value == null)
+            {
+                return defaultwhennull;
+            }
+            else
+            {
+                return ((TimeSpan)value).ToString(@"d\.hh\:mm\:ss");
             }
         }
 
@@ -497,6 +549,15 @@ namespace AMSExplorer
             else return null;
         }
 
+        private string ReturnSelectedStreamingEndpointHostname()
+        {
+            if (comboBoxStreamingEndpoint.SelectedItem != null)
+            {
+                return ((Item)comboBoxStreamingEndpoint.SelectedItem).Value;
+            }
+            else return null;
+        }
+
 
         private void BuildLocatorsTree()
         {
@@ -506,6 +567,43 @@ namespace AMSExplorer
             IEnumerable<IAssetFile> MyAssetFiles;
             List<Uri> ProgressiveDownloadUris;
             IStreamingEndpoint SelectedSE = ReturnSelectedStreamingEndpoint();
+            string SelectedSEHostName = ReturnSelectedStreamingEndpointHostname();
+
+
+            // delivery policies
+            bool protocolDASH, protocolHLS, protocolSmooth, protocolProgressiveDownload;
+
+            if (myAsset.DeliveryPolicies.Count > 0)
+            { // some dynamic encryption, let's analyse the procotols
+
+                protocolDASH = protocolHLS = protocolSmooth = protocolProgressiveDownload = false;
+
+                foreach (var pol in myAsset.DeliveryPolicies)
+                {
+                    if ((pol.AssetDeliveryProtocol & AssetDeliveryProtocol.Dash) == AssetDeliveryProtocol.Dash)
+                    {
+                        protocolDASH = true;
+                    }
+                    if ((pol.AssetDeliveryProtocol & AssetDeliveryProtocol.HLS) == AssetDeliveryProtocol.HLS)
+                    {
+                        protocolHLS = true;
+                    }
+                    if ((pol.AssetDeliveryProtocol & AssetDeliveryProtocol.SmoothStreaming) == AssetDeliveryProtocol.SmoothStreaming)
+                    {
+                        protocolSmooth = true;
+                    }
+                    if ((pol.AssetDeliveryProtocol & AssetDeliveryProtocol.ProgressiveDownload) == AssetDeliveryProtocol.ProgressiveDownload)
+                    {
+                        protocolProgressiveDownload = true;
+                    }
+                }
+            }
+            else
+            {
+                protocolDASH = protocolHLS = protocolSmooth = protocolProgressiveDownload = true;
+            }
+
+
             if (SelectedSE != null)
             {
                 bool CurrentStreamingEndpointHasRUs = SelectedSE.ScaleUnits > 0;
@@ -563,26 +661,34 @@ namespace AMSExplorer
 
                     if (locator.StartTime != null)
                         TreeViewLocators.Nodes[indexloc].Nodes[0].Nodes.Add(new TreeNode(
-                           string.Format("Start time: {0}", (((DateTime)locator.StartTime).ToLocalTime().ToString()))
+                           string.Format("Start time: {0}", (((DateTime)locator.StartTime).ToLocalTime().ToString("G")))
                            ));
 
                     if (locator.ExpirationDateTime != null)
                         TreeViewLocators.Nodes[indexloc].Nodes[0].Nodes.Add(new TreeNode(
-                         string.Format("Expiration date time: {0}", (((DateTime)locator.ExpirationDateTime).ToLocalTime().ToString()))
+                         string.Format("Expiration date time: {0}", (((DateTime)locator.ExpirationDateTime).ToLocalTime().ToString("G")))
                          ));
 
                     if (locator.Type == LocatorType.OnDemandOrigin)
                     {
                         TreeViewLocators.Nodes[indexloc].Nodes[0].Nodes.Add(new TreeNode(
-                     string.Format("Path: {0}", AssetInfo.RW(locator.Path, SelectedSE))
+                     string.Format("Path: {0}", AssetInfo.RW(locator.Path, SelectedSE, null, false, SelectedSEHostName))
                      ));
 
                         int indexn = 1;
 
-                        TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._prog_down_http_streaming) { ForeColor = colornodeRU });
-                        foreach (IAssetFile IAF in myAsset.AssetFiles)
-                            TreeViewLocators.Nodes[indexloc].Nodes[indexn].Nodes.Add(new TreeNode((new Uri(AssetInfo.RW(locator.Path, SelectedSE, null, checkBoxHttps.Checked) + IAF.Name)).AbsoluteUri) { ForeColor = colornodeRU });
-                        indexn++;
+                        if (
+                            (myAsset.Options == AssetCreationOptions.None && myAsset.DeliveryPolicies.Count == 0)
+                            ||
+                            (myAsset.Options == AssetCreationOptions.StorageEncrypted && protocolProgressiveDownload)
+                            ) // if no dynamic encryption and asset clear, or asset storage encrypted with progressive download decryption
+                        {
+                            TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._prog_down_http_streaming) { ForeColor = colornodeRU });
+
+                            foreach (IAssetFile IAF in myAsset.AssetFiles)
+                                TreeViewLocators.Nodes[indexloc].Nodes[indexn].Nodes.Add(new TreeNode((new Uri(AssetInfo.RW(locator.Path, SelectedSE, null, checkBoxHttps.Checked, SelectedSEHostName) + IAF.Name)).AbsoluteUri) { ForeColor = colornodeRU });
+                            indexn++;
+                        }
 
                         if (myAsset.AssetType == AssetType.MediaServicesHLS)
                         // It is a static HLS asset, so let's propose only the standard HLS V3 locator
@@ -592,44 +698,44 @@ namespace AMSExplorer
                             indexn++;
                         }
                         else if (myAsset.AssetType == AssetType.SmoothStreaming || myAsset.AssetType == AssetType.MultiBitrateMP4 || myAsset.AssetType == AssetType.Unknown) //later to change Unknown to live archive
-                        // It's not Static HLS
-                        // Smooth or multi MP4
+                                                                                                                                                                             // It's not Static HLS
+                                                                                                                                                                             // Smooth or multi MP4
                         {
-                            if (locator.GetSmoothStreamingUri() != null)
+                            if (protocolSmooth && locator.GetSmoothStreamingUri() != null)
                             {
                                 Color ColorSmooth = ((myAsset.AssetType == AssetType.SmoothStreaming) && !checkBoxHttps.Checked) ? Color.Black : colornodeRU; // if not RU but aset is smooth, we can display the smooth URL as OK. If user asked for https, it works only with RU
                                 TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._smooth) { ForeColor = ColorSmooth });
-                                foreach (var uri in AssetInfo.GetSmoothStreamingUris(locator, SelectedSE, filter, checkBoxHttps.Checked))
+                                foreach (var uri in AssetInfo.GetSmoothStreamingUris(locator, SelectedSE, filter, checkBoxHttps.Checked, SelectedSEHostName))
                                 {
                                     TreeViewLocators.Nodes[indexloc].Nodes[indexn].Nodes.Add(new TreeNode(uri.AbsoluteUri) { ForeColor = ColorSmooth });
                                 }
                                 indexn++;
 
                                 TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._smooth_legacy) { ForeColor = colornodeRU });
-                                foreach (var uri in AssetInfo.GetSmoothStreamingLegacyUris(locator, SelectedSE, filter, checkBoxHttps.Checked))
+                                foreach (var uri in AssetInfo.GetSmoothStreamingLegacyUris(locator, SelectedSE, filter, checkBoxHttps.Checked, SelectedSEHostName))
                                 {
                                     TreeViewLocators.Nodes[indexloc].Nodes[indexn].Nodes.Add(new TreeNode(uri.AbsoluteUri) { ForeColor = colornodeRU });
                                 }
                                 indexn++;
                             }
-                            if (locator.GetMpegDashUri() != null)
+                            if (protocolDASH && locator.GetMpegDashUri() != null)
                             {
                                 TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._dash) { ForeColor = colornodeRU });
-                                foreach (var uri in AssetInfo.GetMpegDashUris(locator, SelectedSE, filter, checkBoxHttps.Checked))
+                                foreach (var uri in AssetInfo.GetMpegDashUris(locator, SelectedSE, filter, checkBoxHttps.Checked, SelectedSEHostName))
                                 {
                                     TreeViewLocators.Nodes[indexloc].Nodes[indexn].Nodes.Add(new TreeNode(uri.AbsoluteUri) { ForeColor = colornodeRU });
                                 }
                                 indexn++;
                             }
-                            if (locator.GetHlsUri() != null)
+                            if (protocolHLS && locator.GetHlsUri() != null)
                             {
                                 TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._hls_v4) { ForeColor = colornodeRU });
-                                foreach (var uri in AssetInfo.GetHlsUris(locator, SelectedSE, filter, checkBoxHttps.Checked))
+                                foreach (var uri in AssetInfo.GetHlsUris(locator, SelectedSE, filter, checkBoxHttps.Checked, SelectedSEHostName))
                                 {
                                     TreeViewLocators.Nodes[indexloc].Nodes[indexn].Nodes.Add(new TreeNode(uri.AbsoluteUri) { ForeColor = colornodeRU });
                                 }
                                 TreeViewLocators.Nodes[indexloc].Nodes.Add(new TreeNode(AssetInfo._hls_v3) { ForeColor = colornodeRU });
-                                foreach (var uri in AssetInfo.GetHlsv3Uris(locator, SelectedSE, filter, checkBoxHttps.Checked))
+                                foreach (var uri in AssetInfo.GetHlsv3Uris(locator, SelectedSE, filter, checkBoxHttps.Checked, SelectedSEHostName))
                                 {
                                     TreeViewLocators.Nodes[indexloc].Nodes[indexn + 1].Nodes.Add(new TreeNode(uri.AbsoluteUri) { ForeColor = colornodeRU });
                                 }
@@ -661,8 +767,6 @@ namespace AMSExplorer
 
         }
 
-
-
         private void DoDisplayFileProperties()
         {
             if (listViewFiles.SelectedItems.Count > 0)
@@ -673,8 +777,8 @@ namespace AMSExplorer
                 DGFiles.Rows.Add("Id", AF.Id);
                 DGFiles.Rows.Add("File size", AssetInfo.FormatByteSize(AF.ContentFileSize));
                 DGFiles.Rows.Add("Mime type", AF.MimeType);
-                DGFiles.Rows.Add("Created", AF.Created.ToLocalTime());
-                DGFiles.Rows.Add("Last modified", AF.LastModified.ToLocalTime());
+                DGFiles.Rows.Add("Created", AF.Created.ToLocalTime().ToString("G"));
+                DGFiles.Rows.Add("Last modified", AF.LastModified.ToLocalTime().ToString("G"));
                 DGFiles.Rows.Add("Primary file", AF.IsPrimary);
                 DGFiles.Rows.Add("Encrypted", AF.IsEncrypted);
                 DGFiles.Rows.Add("Encryption scheme", AF.EncryptionScheme);
@@ -705,8 +809,12 @@ namespace AMSExplorer
             }
         }
 
-        private void DoDisplayKeyProperties()
+        private void DoDisplayKeyPropertiesAndAutOptions()
         {
+            buttonRemoveAuthPolOption.Enabled = false;
+            buttonRemoveAuthPol.Enabled = false;
+            buttonGetTestToken.Enabled = false;
+
             if (listViewKeys.SelectedItems.Count > 0)
             {
                 IContentKey key = myAsset.ContentKeys.Skip(listViewKeys.SelectedIndices[0]).Take(1).FirstOrDefault();
@@ -715,11 +823,15 @@ namespace AMSExplorer
                 dataGridViewKeys.Rows.Add("Id", key.Id);
                 dataGridViewKeys.Rows.Add("Content key type", key.ContentKeyType);
                 dataGridViewKeys.Rows.Add("Checksum", key.Checksum);
-                dataGridViewKeys.Rows.Add("Created", key.Created.ToLocalTime());
-                dataGridViewKeys.Rows.Add("Las modified", key.LastModified.ToLocalTime());
+                dataGridViewKeys.Rows.Add("Created", key.Created.ToLocalTime().ToString("G"));
+                dataGridViewKeys.Rows.Add("Last modified", key.LastModified.ToLocalTime().ToString("G"));
                 dataGridViewKeys.Rows.Add("Protection key Id", key.ProtectionKeyId);
                 dataGridViewKeys.Rows.Add("Protection key type", key.ProtectionKeyType);
-                dataGridViewKeys.Rows.Add("GetClearKeyValue", Convert.ToBase64String(key.GetClearKeyValue()));
+                int i = dataGridViewKeys.Rows.Add("Clear Key Value", "see clear key");
+                DataGridViewButtonCell btn = new DataGridViewButtonCell();
+                dataGridViewKeys.Rows[i].Cells[1] = btn;
+                dataGridViewKeys.Rows[i].Cells[1].Value = "See clear key";
+                dataGridViewKeys.Rows[i].Cells[1].Tag = Convert.ToBase64String(key.GetClearKeyValue());
 
                 listViewAutPolOptions.Items.Clear();
                 dataGridViewAutPolOption.Rows.Clear();
@@ -730,11 +842,12 @@ namespace AMSExplorer
                     myAuthPolicy = myContext.ContentKeyAuthorizationPolicies.Where(p => p.Id == key.AuthorizationPolicyId).FirstOrDefault();
                     if (myAuthPolicy != null)
                     {
+                        buttonRemoveAuthPol.Enabled = true;
                         dataGridViewKeys.Rows.Add("Authorization Policy Name", myAuthPolicy.Name);
                         listViewAutPolOptions.BeginUpdate();
                         foreach (var option in myAuthPolicy.Options)
                         {
-                            ListViewItem item = new ListViewItem((string.IsNullOrEmpty(myAuthPolicy.Name) ? "<no name>" : myAuthPolicy.Name) + " / " + (string.IsNullOrEmpty(option.Name) ? "<no name>" : option.Name), 0);
+                            ListViewItem item = new ListViewItem((string.IsNullOrEmpty(option.Name) ? "<no name>" : option.Name), 0);
                             listViewAutPolOptions.Items.Add(item);
                         }
                         listViewAutPolOptions.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
@@ -746,67 +859,12 @@ namespace AMSExplorer
                 {
                     myAuthPolicy = null;
                 }
-
-                switch (key.ContentKeyType)
-                {
-
-                    case ContentKeyType.CommonEncryption:
-                        string DelUrl;
-                        try
-                        {
-                            DelUrl = key.GetKeyDeliveryUrl(ContentKeyDeliveryType.PlayReadyLicense).OriginalString;
-                        }
-                        catch (Exception e) // Perhaps PlayReady license delivery has been activated
-                        {
-                            if (e.InnerException == null)
-                            {
-                                DelUrl = e.Message;
-                            }
-                            else
-                            {
-                                DelUrl = string.Format("{0} ({1})", e.Message, Program.GetErrorMessage(e));
-                            }
-                        }
-                        dataGridViewKeys.Rows.Add("GetkeyDeliveryUrl", DelUrl);
-                        break;
-
-                    case ContentKeyType.EnvelopeEncryption:
-                        dataGridViewKeys.Rows.Add("GetkeyDeliveryUrl", key.GetKeyDeliveryUrl(ContentKeyDeliveryType.BaselineHttp).OriginalString);
-                        break;
-
-
-                    default:
-                        break;
-
-                }
             }
             else
             {
                 myAuthPolicy = null;
             }
         }
-
-        private static string FormatXmlString(string xmlString)
-        {
-
-            if (string.IsNullOrEmpty(xmlString))
-            {
-
-                return xmlString;
-
-            }
-
-            else
-            {
-
-                System.Xml.Linq.XElement element = System.Xml.Linq.XElement.Parse(xmlString);
-
-                return element.ToString();
-
-            }
-
-        }
-
 
 
         private void AssetInformation_FormClosed(object sender, FormClosedEventArgs e)
@@ -871,7 +929,6 @@ namespace AMSExplorer
                     }
                 }
             }
-
         }
 
         private void toolStripMenuItemDownloadFile_Click(object sender, EventArgs e)
@@ -885,15 +942,51 @@ namespace AMSExplorer
 
             if (SelectedAssetFiles.Count > 0)
             {
-                if (folderBrowserDialogDownload.ShowDialog() == DialogResult.OK)
+                CommonOpenFileDialog openFolderDialog = new CommonOpenFileDialog() { IsFolderPicker = true, InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) };
+                if (openFolderDialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
+                    // let's check if this overwites existing files
+                    var listfiles = SelectedAssetFiles.ToList().Where(f => File.Exists(openFolderDialog.FileName + @"\\" + f.Name)).Select(f => openFolderDialog.FileName + @"\\" + f.Name).ToList();
+                    if (listfiles.Count > 0)
+                    {
+                        string text;
+                        if (listfiles.Count > 1)
+                        {
+                            text = string.Format(
+                                                "The following files are already in the folder(s)\n\n{0}\n\nOverwite the files ?",
+                                                string.Join("\n", listfiles.Select(f => Path.GetFileName(f)).ToArray())
+                                                );
+                        }
+                        else
+                        {
+                            text = string.Format(
+                                                 "The following file is already in the folder\n\n{0}\n\nOverwite the file ?",
+                                                 string.Join("\n", listfiles.Select(f => Path.GetFileName(f)).ToArray())
+                                                 );
+                        }
+
+                        if (MessageBox.Show(text, "File(s) overwrite", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+                        {
+                            return;
+                        }
+                        try
+                        {
+                            listfiles.ForEach(f => File.Delete(f));
+                        }
+                        catch
+                        {
+                            MessageBox.Show("Error when deleting files", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+                    }
+
                     try
                     {
                         foreach (var assetfile in SelectedAssetFiles)
                         {
                             int index = myMainForm.DoGridTransferAddItem(string.Format("Download of file '{0}' from asset '{1}'", assetfile.Name, myAsset.Name), TransferType.DownloadToLocal, Properties.Settings.Default.useTransferQueue);
                             // Start a worker thread that does downloading.
-                            myMainForm.DoDownloadFileFromAsset(myAsset, assetfile, folderBrowserDialogDownload.SelectedPath, index);
+                            myMainForm.DoDownloadFileFromAsset(myAsset, assetfile, openFolderDialog.FileName, index);
                         }
                         MessageBox.Show("Download process has been initiated. See the Transfers tab to check the progress.");
 
@@ -909,12 +1002,10 @@ namespace AMSExplorer
         private void buttonCopyStats_Click(object sender, EventArgs e)
         {
             DoAssetStats();
-
         }
 
         private void DoAssetStats()
         {
-
             AssetInfo MyAssetReport = new AssetInfo(myAsset);
             MyAssetReport.CopyStatsToClipBoard();
         }
@@ -974,7 +1065,7 @@ namespace AMSExplorer
             {
                 string question = SelectedAssetFiles.Count == 1 ? string.Format("Delete the file '{0}' ?", SelectedAssetFiles.FirstOrDefault().Name) : string.Format("Delete these {0} files ?", SelectedAssetFiles.Count);
 
-                if (System.Windows.Forms.MessageBox.Show(question, "File deletion", System.Windows.Forms.MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
+                if (System.Windows.Forms.MessageBox.Show(question, "File deletion", System.Windows.Forms.MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
                 {
                     try
                     {
@@ -1016,15 +1107,17 @@ namespace AMSExplorer
         {
             bool bSelect = listViewFiles.SelectedItems.Count > 0;
             bool bMultiSelect = listViewFiles.SelectedItems.Count > 1;
-            bool NonEncrypted = (myAsset.Options == AssetCreationOptions.None);
+            bool NonEncrypted = (myAsset.Options == AssetCreationOptions.None || myAsset.Options == AssetCreationOptions.CommonEncryptionProtected);
+
             buttonDeleteFile.Enabled = bSelect;
-            buttonDeleteAll.Enabled = bSelect;
+            buttonDeleteAll.Enabled = true;
             buttonSetPrimary.Enabled = bSelect && !bMultiSelect;
             buttonDownloadFile.Enabled = bSelect;
-            buttonOpenFile.Enabled = bSelect;
+            buttonOpenFile.Enabled = bSelect & NonEncrypted;
             buttonDuplicate.Enabled = bSelect & NonEncrypted && !bMultiSelect;
             buttonUpload.Enabled = true;
             buttonFileMetadata.Enabled = bSelect && !bMultiSelect;
+            buttonEditOnline.Enabled = bSelect && !bMultiSelect;
             DoDisplayFileProperties();
         }
 
@@ -1055,7 +1148,6 @@ namespace AMSExplorer
                     buttonAzureMediaPlayer.Enabled = false;
                     buttonDashLiveAzure.Enabled = false;
                     buttonFlash.Enabled = false;
-                    buttonSLMonitor.Enabled = false;
                     buttonHTML.Enabled = false;
                     buttonOpen.Enabled = false;
                     buttonDel.Enabled = false;
@@ -1069,7 +1161,6 @@ namespace AMSExplorer
                             buttonAzureMediaPlayer.Enabled = true;
                             buttonDashLiveAzure.Enabled = false;
                             buttonFlash.Enabled = true;
-                            buttonSLMonitor.Enabled = true;
                             buttonHTML.Enabled = false;
                             buttonOpen.Enabled = false;
                             break;
@@ -1079,7 +1170,6 @@ namespace AMSExplorer
                             buttonAzureMediaPlayer.Enabled = true;
                             buttonDashLiveAzure.Enabled = true;
                             buttonFlash.Enabled = true;
-                            buttonSLMonitor.Enabled = false;
                             buttonHTML.Enabled = false;
                             buttonOpen.Enabled = false;
                             break;
@@ -1089,7 +1179,6 @@ namespace AMSExplorer
                             buttonAzureMediaPlayer.Enabled = (TreeViewLocators.SelectedNode.Text.ToLower().EndsWith(".mp4"));
                             buttonDashLiveAzure.Enabled = false;
                             buttonFlash.Enabled = false;
-                            buttonSLMonitor.Enabled = false;
                             buttonHTML.Enabled = false;
                             buttonOpen.Enabled = true;
                             break;
@@ -1099,7 +1188,6 @@ namespace AMSExplorer
                             buttonAzureMediaPlayer.Enabled = (TreeViewLocators.SelectedNode.Text.ToLower().EndsWith(".mp4"));
                             buttonDashLiveAzure.Enabled = false;
                             buttonFlash.Enabled = false;
-                            buttonSLMonitor.Enabled = false;
                             buttonHTML.Enabled = (TreeViewLocators.SelectedNode.Text.ToLower().EndsWith(".mp4"));
                             buttonOpen.Enabled = !(TreeViewLocators.SelectedNode.Text.ToLower().EndsWith(".ism"));
                             break;
@@ -1112,7 +1200,6 @@ namespace AMSExplorer
                 {
                     buttonDel.Enabled = true; // parent is null, so we can propose to delete the locator
                 }
-
             }
         }
 
@@ -1131,30 +1218,29 @@ namespace AMSExplorer
                     switch (TreeViewLocators.SelectedNode.Parent.Text)
                     {
                         case AssetInfo._dash:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.Dash);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.Dash, mainForm: myMainForm);
 
                             break;
 
                         case AssetInfo._smooth:
                         case AssetInfo._smooth_legacy:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.Smooth);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.Smooth, mainForm: myMainForm);
                             break;
 
                         case AssetInfo._hls_v4:
                         case AssetInfo._hls_v3:
                         case AssetInfo._hls:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.HLS);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.HLS, mainForm: myMainForm);
                             break;
 
                         case AssetInfo._prog_down_http_streaming:
                         case AssetInfo._prog_down_https_SAS:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.VideoMP4);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayer, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, formatamp: AzureMediaPlayerFormats.VideoMP4, mainForm: myMainForm);
                             break;
 
                         default:
                             break;
                     }
-
                 }
             }
         }
@@ -1182,7 +1268,6 @@ namespace AMSExplorer
             {
                 try
                 {
-
                     if (!Mainform.havestoragecredentials)
                     { // No blob credentials.
                         MessageBox.Show("Please specify the account storage key in the login window.");
@@ -1217,7 +1302,7 @@ namespace AMSExplorer
                                 destinationBlob = assetTargetContainer.GetBlockBlobReference(AFDup.Name);
 
                                 destinationBlob.DeleteIfExists();
-                                destinationBlob.StartCopyFromBlob(sourceCloudBlob);
+                                destinationBlob.StartCopy(sourceCloudBlob);
 
                                 CloudBlockBlob blob;
                                 blob = (CloudBlockBlob)assetTargetContainer.GetBlobReferenceFromServer(AFDup.Name);
@@ -1225,6 +1310,7 @@ namespace AMSExplorer
                                 while (blob.CopyState.Status == CopyStatus.Pending)
                                 {
                                     Task.Delay(TimeSpan.FromSeconds(1d)).Wait();
+                                    blob.FetchAttributes();
                                 }
                                 destinationBlob.FetchAttributes();
                                 AFDup.ContentFileSize = sourceCloudBlob.Properties.Length;
@@ -1294,10 +1380,33 @@ namespace AMSExplorer
 
         private void MyUploadProgressChanged(object sender, UploadProgressChangedEventArgs e)
         {
-            progressBarUpload.BeginInvoke(new Action(() => progressBarUpload.Value = (int)e.Progress), null);
+            try
+            {
+                progressBarUpload.BeginInvoke(new Action(() => progressBarUpload.Value = (int)e.Progress), null);
+            }
+            catch
+            {
 
+            }
         }
 
+        private void ProcessDownloadFileToAsset(IAssetFile assetFile, string destfolderpath)
+        {
+            try
+            {
+                assetFile.DownloadProgressChanged += MyDownloadProgressChanged;
+                assetFile.Download(destfolderpath);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        private void MyDownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        {
+            progressBarUpload.BeginInvoke(new Action(() => progressBarUpload.Value = (int)e.Progress), null);
+        }
 
 
         private void duplicateFileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1337,7 +1446,7 @@ namespace AMSExplorer
                 if (TreeViewLocators.SelectedNode.Parent == null)   // user selected the locator title
                 {
 
-                    if (System.Windows.Forms.MessageBox.Show("Are you sure that you want to delete this locator ?", "Locator deletion", System.Windows.Forms.MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
+                    if (System.Windows.Forms.MessageBox.Show("Are you sure that you want to delete this locator ?", "Locator deletion", System.Windows.Forms.MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
                     {
                         bool Error = false;
                         try
@@ -1392,7 +1501,6 @@ namespace AMSExplorer
 
         private void listViewDelPol_SelectedIndexChanged(object sender, EventArgs e)
         {
-
             bool bSelect = listViewDelPol.SelectedItems.Count > 0 ? true : false;
             buttonRemoveDelPol.Enabled = bSelect;
             DoDisplayDeliveryPolicyProperties();
@@ -1453,8 +1561,8 @@ namespace AMSExplorer
         private void listViewKeys_SelectedIndexChanged(object sender, EventArgs e)
         {
             buttonRemoveKey.Enabled = listViewKeys.SelectedItems.Count > 0;
-            buttonRemoveAuthPol.Enabled = buttonGetTestToken.Enabled = false;
-            DoDisplayKeyProperties();
+            buttonRemoveAuthPol.Enabled = buttonRemoveAuthPolOption.Enabled = buttonGetTestToken.Enabled = false;
+            DoDisplayKeyPropertiesAndAutOptions();
         }
 
 
@@ -1467,18 +1575,29 @@ namespace AMSExplorer
         {
             bool DisplayButGetToken = false;
 
-            if (listViewAutPolOptions.SelectedItems.Count > 0)
+            if (listViewAutPolOptions.SelectedItems.Count > 0 && myAuthPolicy != null)
             {
                 dataGridViewAutPolOption.Rows.Clear();
 
                 IContentKeyAuthorizationPolicyOption option = myAuthPolicy.Options.Skip(listViewAutPolOptions.SelectedIndices[0]).Take(1).FirstOrDefault();
                 if (option != null) // Token option
                 {
-
                     dataGridViewAutPolOption.Rows.Add("Name", option.Name != null ? option.Name : "<no name>");
                     dataGridViewAutPolOption.Rows.Add("Id", option.Id);
-                    dataGridViewAutPolOption.Rows.Add("KeyDeliveryConfiguration", FormatXmlString(option.KeyDeliveryConfiguration));
+
+                    // Key delivery configuration
+
+                    int i = dataGridViewAutPolOption.Rows.Add("KeyDeliveryConfiguration", "<null>");
+                    if (option.KeyDeliveryConfiguration != null)
+                    {
+                        DataGridViewButtonCell btn = new DataGridViewButtonCell();
+                        dataGridViewAutPolOption.Rows[i].Cells[1] = btn;
+                        dataGridViewAutPolOption.Rows[i].Cells[1].Value = "See value";
+                        dataGridViewAutPolOption.Rows[i].Cells[1].Tag = option.KeyDeliveryConfiguration;
+                    }
+
                     dataGridViewAutPolOption.Rows.Add("KeyDeliveryType", option.KeyDeliveryType);
+
                     List<ContentKeyAuthorizationPolicyRestriction> objList_restriction = option.Restrictions;
                     foreach (var restriction in objList_restriction)
                     {
@@ -1490,33 +1609,68 @@ namespace AMSExplorer
                         }
                         if (restriction.Requirements != null)
                         {
-                            dataGridViewAutPolOption.Rows.Add("Restriction Requirements", FormatXmlString(restriction.Requirements));
-                            TokenRestrictionTemplate tokenTemplate = TokenRestrictionTemplateSerializer.Deserialize(restriction.Requirements);
-                            dataGridViewAutPolOption.Rows.Add("Token Type", tokenTemplate.TokenType);
-                            if (tokenTemplate.PrimaryVerificationKey!=null)
+                            // Restriction Requirements
+                            i = dataGridViewAutPolOption.Rows.Add("Restriction Requirements", "<null>");
+                            if (restriction.Requirements != null)
                             {
-                                dataGridViewAutPolOption.Rows.Add("Token Verification Key Type", (tokenTemplate.PrimaryVerificationKey.GetType() == typeof(SymmetricVerificationKey)) ? "Symmetric" : "Asymmetric (X509)");
-                            }
-                            if (tokenTemplate.OpenIdConnectDiscoveryDocument != null)
-                            {
-                                dataGridViewAutPolOption.Rows.Add("OpenId Connect Discovery Document Uri", tokenTemplate.OpenIdConnectDiscoveryDocument.OpenIdDiscoveryUri);
-                            }
-                            dataGridViewAutPolOption.Rows.Add("Token Audience", tokenTemplate.Audience);
-                            dataGridViewAutPolOption.Rows.Add("Token Issuer", tokenTemplate.Issuer);
-                            foreach (var claim in tokenTemplate.RequiredClaims)
-                            {
-                                dataGridViewAutPolOption.Rows.Add("Required Claim, Type", claim.ClaimType);
-                                dataGridViewAutPolOption.Rows.Add("Required Claim, Value", claim.ClaimValue);
+                                DataGridViewButtonCell btn2 = new DataGridViewButtonCell();
+                                dataGridViewAutPolOption.Rows[i].Cells[1] = btn2;
+                                dataGridViewAutPolOption.Rows[i].Cells[1].Value = "See value";
+                                dataGridViewAutPolOption.Rows[i].Cells[1].Tag = restriction.Requirements;
+
+                                TokenRestrictionTemplate tokenTemplate = TokenRestrictionTemplateSerializer.Deserialize(restriction.Requirements);
+                                dataGridViewAutPolOption.Rows.Add("Token Type", tokenTemplate.TokenType);
+
+                                i = dataGridViewAutPolOption.Rows.Add("Primary Verification Key", "<null>");
+                                if (tokenTemplate.PrimaryVerificationKey != null)
+                                {
+                                    dataGridViewAutPolOption.Rows.Add("Token Verification Key Type", (tokenTemplate.PrimaryVerificationKey.GetType() == typeof(SymmetricVerificationKey)) ? "Symmetric" : "Asymmetric (X509)");
+                                    if (tokenTemplate.PrimaryVerificationKey.GetType() == typeof(SymmetricVerificationKey))
+                                    {
+                                        var verifkey = (SymmetricVerificationKey)tokenTemplate.PrimaryVerificationKey;
+                                        btn2 = new DataGridViewButtonCell();
+                                        dataGridViewAutPolOption.Rows[i].Cells[1] = btn2;
+                                        dataGridViewAutPolOption.Rows[i].Cells[1].Value = "See key value";
+                                        dataGridViewAutPolOption.Rows[i].Cells[1].Tag = Convert.ToBase64String(verifkey.KeyValue);
+                                    }
+                                }
+
+
+                                foreach (var verifkey in tokenTemplate.AlternateVerificationKeys)
+                                {
+                                    i = dataGridViewAutPolOption.Rows.Add("Alternate Verification Key", "<null>");
+                                    if (verifkey != null)
+                                    {
+                                        dataGridViewAutPolOption.Rows.Add("Token Verification Key Type", (verifkey.GetType() == typeof(SymmetricVerificationKey)) ? "Symmetric" : "Asymmetric (X509)");
+                                        if (verifkey.GetType() == typeof(SymmetricVerificationKey))
+                                        {
+                                            var verifkeySym = (SymmetricVerificationKey)verifkey;
+                                            btn2 = new DataGridViewButtonCell();
+                                            dataGridViewAutPolOption.Rows[i].Cells[1] = btn2;
+                                            dataGridViewAutPolOption.Rows[i].Cells[1].Value = "See key value";
+                                            dataGridViewAutPolOption.Rows[i].Cells[1].Tag = Convert.ToBase64String(verifkeySym.KeyValue);
+                                        }
+                                    }
+                                }
+
+                                if (tokenTemplate.OpenIdConnectDiscoveryDocument != null)
+                                {
+                                    dataGridViewAutPolOption.Rows.Add("OpenId Connect Discovery Document Uri", tokenTemplate.OpenIdConnectDiscoveryDocument.OpenIdDiscoveryUri);
+                                }
+                                dataGridViewAutPolOption.Rows.Add("Token Audience", tokenTemplate.Audience);
+                                dataGridViewAutPolOption.Rows.Add("Token Issuer", tokenTemplate.Issuer);
+                                foreach (var claim in tokenTemplate.RequiredClaims)
+                                {
+                                    dataGridViewAutPolOption.Rows.Add("Required Claim, Type", claim.ClaimType);
+                                    dataGridViewAutPolOption.Rows.Add("Required Claim, Value", claim.ClaimValue);
+                                }
                             }
                         }
                     }
                 }
-
-
-
+                buttonRemoveAuthPolOption.Enabled = true;
             }
             buttonGetTestToken.Enabled = DisplayButGetToken;
-            buttonRemoveAuthPol.Enabled = true;
         }
 
         private void buttonGetTestToken_Click(object sender, EventArgs e)
@@ -1526,7 +1680,6 @@ namespace AMSExplorer
 
         private void DoGetTestToken()
         {
-            bool Error = true;
             if (listViewKeys.SelectedItems.Count > 0)
             {
                 IContentKey key = myAsset.ContentKeys.Skip(listViewKeys.SelectedIndices[0]).Take(1).FirstOrDefault();
@@ -1545,7 +1698,6 @@ namespace AMSExplorer
                                 myMainForm.TextBoxLogWriteLine("The authorization test token (with Bearer) is :\n{0}", Constants.Bearer + testToken);
                                 System.Windows.Forms.Clipboard.SetText(Constants.Bearer + testToken.TokenString);
                                 MessageBox.Show(string.Format("The test token below has been be copied to the log window and clipboard.\n\n{0}", Constants.Bearer + testToken.TokenString), "Test token copied");
-                                Error = false;
                             }
                         }
                     }
@@ -1568,7 +1720,7 @@ namespace AMSExplorer
                     switch (TreeViewLocators.SelectedNode.Parent.Text)
                     {
                         case AssetInfo._dash:
-                            AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.DASHLiveAzure, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext);
+                            AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.DASHLiveAzure, Urlstr: TreeViewLocators.SelectedNode.Text, DoNotRewriteURL: true, context: myContext, mainForm: myMainForm);
                             break;
 
 
@@ -1800,25 +1952,29 @@ namespace AMSExplorer
         private void contextMenuStripKey_Opening(object sender, CancelEventArgs e)
         {
             removeKeyToolStripMenuItem.Enabled = (listViewKeys.SelectedItems.Count > 0);
-
         }
 
         private void contextMenuStripAuthPol_Opening(object sender, CancelEventArgs e)
         {
             getTestTokenToolStripMenuItem.Enabled = (listViewAutPolOptions.SelectedItems.Count > 0);
+            removeOptionToolStripMenuItem.Enabled = (listViewAutPolOptions.SelectedItems.Count > 0);
+            removeAuthorizationPolicyToolStripMenuItem.Enabled = (listViewAutPolOptions.Items.Count > 0);
+
         }
 
         private void contextMenuStripFiles_Opening(object sender, CancelEventArgs e)
         {
             bool selected = listViewFiles.SelectedItems.Count > 0;
             bool bMultiSelect = listViewFiles.SelectedItems.Count > 1;
+            bool NonEncrypted = (myAsset.Options == AssetCreationOptions.None || myAsset.Options == AssetCreationOptions.CommonEncryptionProtected);
 
             makeItPrimaryToolStripMenuItem.Enabled = selected && !bMultiSelect;
             showMetadataToolStripMenuItem.Enabled = selected && !bMultiSelect;
-            toolStripMenuItemOpenFile.Enabled = selected;
+            toolStripMenuItemOpenFile.Enabled = selected & NonEncrypted;
             toolStripMenuItemDownloadFile.Enabled = selected;
             deleteFileToolStripMenuItem.Enabled = selected;
-            duplicateFileToolStripMenuItem.Enabled = selected && !bMultiSelect;
+            duplicateFileToolStripMenuItem.Enabled = selected & NonEncrypted && !bMultiSelect;
+
             deleteAllFilesToolStripMenuItem.Enabled = selected;
         }
 
@@ -1840,7 +1996,7 @@ namespace AMSExplorer
                     {
                         string AuthPolId = AuthPol.Id;
                         string question = string.Format("This will remove the authorization policy '{0}' from the key.\nDo you want to also DELETE the policy from the Azure Media Services account ?", AuthPol.Name);
-                        DialogResult DR = MessageBox.Show(question, "Delivery Policy removal", MessageBoxButtons.YesNoCancel);
+                        DialogResult DR = MessageBox.Show(question, "Authorization policy removal", MessageBoxButtons.YesNoCancel);
 
                         if (DR == DialogResult.Yes || DR == DialogResult.No)
                         {
@@ -1865,7 +2021,54 @@ namespace AMSExplorer
                                 MessageBox.Show(messagestr);
                             }
 
-                            DoDisplayKeyProperties();
+                            DoDisplayKeyPropertiesAndAutOptions();
+                        }
+                    }
+                }
+            }
+        }
+
+        private void DoRemoveAuthPolOption()
+        {
+            if (listViewAutPolOptions.SelectedItems.Count > 0)
+            {
+                if (listViewAutPolOptions.SelectedItems[0] != null)
+                {
+
+                    IContentKey key = myAsset.ContentKeys.Skip(listViewKeys.SelectedIndices[0]).Take(1).FirstOrDefault();
+                    IContentKeyAuthorizationPolicy AuthPol = myContext.ContentKeyAuthorizationPolicies.Where(p => p.Id == key.AuthorizationPolicyId).FirstOrDefault();
+                    var option = myAuthPolicy.Options.Skip(listViewAutPolOptions.SelectedIndices[0]).Take(1).FirstOrDefault();
+
+                    if (option != null)
+                    {
+                        string AuthPolId = AuthPol.Id;
+                        string question = string.Format("This will remove the option '{0}' from the authorization policy.\nDo you want to also DELETE the option from the Azure Media Services account ?", AuthPol.Name);
+                        DialogResult DR = MessageBox.Show(question, "Option removal", MessageBoxButtons.YesNoCancel);
+
+                        if (DR == DialogResult.Yes || DR == DialogResult.No)
+                        {
+                            string step = "removing";
+                            try
+                            {
+                                AuthPol.Options.Remove(option);
+
+                                if (DR == DialogResult.Yes) // user wants also to delete the option
+                                {
+                                    step = "deleting";
+                                    option.Delete();
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                string messagestr = string.Format("Error when {0} the authorization policy option.", step);
+                                if (e.InnerException != null)
+                                {
+                                    messagestr += Constants.endline + Program.GetErrorMessage(e);
+                                }
+                                MessageBox.Show(messagestr);
+                            }
+
+                            DoDisplayKeyPropertiesAndAutOptions();
                         }
                     }
                 }
@@ -1876,14 +2079,14 @@ namespace AMSExplorer
         {
             DoFilterInfo();
         }
-        private List<AssetFilter> ReturnSelectedFilters()
+        private List<IStreamingAssetFilter> ReturnSelectedFilters()
         {
 
-            List<AssetFilter> SelectedFilters = new List<AssetFilter>();
+            List<IStreamingAssetFilter> SelectedFilters = new List<IStreamingAssetFilter>();
             foreach (DataGridViewRow Row in dataGridViewFilters.SelectedRows)
             {
                 string filterid = Row.Cells[dataGridViewFilters.Columns["Id"].Index].Value.ToString();
-                AssetFilter myfilter = myDynManifestContext.GetAssetFilter(filterid);
+                IStreamingAssetFilter myfilter = myAsset.AssetFilters.Where(f => f.Id == filterid).FirstOrDefault();
                 if (myfilter != null)
                 {
                     SelectedFilters.Add(myfilter);
@@ -1896,21 +2099,24 @@ namespace AMSExplorer
             var filters = ReturnSelectedFilters();
             if (filters.Count == 1)
             {
-                DynManifestFilter form = new DynManifestFilter(myDynManifestContext, myContext, (Filter)filters.FirstOrDefault(), myAsset);
+                var filter = filters.FirstOrDefault();
+                DynManifestFilter form = new DynManifestFilter(myContext, (IStreamingFilter)filter, myAsset);
 
                 if (form.ShowDialog() == DialogResult.OK)
                 {
-                    AssetFilter filtertoupdate = (AssetFilter)form.GetFilter;
+                    FilterCreationInfo filtertoupdate = null;
                     try
                     {
-                        filtertoupdate.Delete();
-                        filtertoupdate.Create();
+                        filtertoupdate = form.GetFilterInfo;
+                        filter.PresentationTimeRange = filtertoupdate.Presentationtimerange;
+                        filter.Tracks = filtertoupdate.Trackconditions;
+                        filter.Update();
                         myMainForm.TextBoxLogWriteLine("Asset filter '{0}' has been updated.", filtertoupdate.Name);
                     }
                     catch (Exception e)
                     {
-                        MessageBox.Show("Error when updating asset filter.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        myMainForm.TextBoxLogWriteLine("Error when updating asset filter '{0}'.", filtertoupdate.Name, true);
+                        MessageBox.Show("Error when updating asset filter." + Constants.endline + Program.GetErrorMessage(e), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        myMainForm.TextBoxLogWriteLine("Error when updating asset filter '{0}'.", filter.Name, true);
                         myMainForm.TextBoxLogWriteLine(e);
                     }
                     DisplayAssetFilters();
@@ -1925,27 +2131,22 @@ namespace AMSExplorer
 
         private void DoCreateAssetFilter()
         {
-            DynManifestFilter form = new DynManifestFilter(myDynManifestContext, myContext, null, myAsset);
-            form.CreateAssetFilterFromAssetName = myAsset.Name;
+            DynManifestFilter form = new DynManifestFilter(myContext, null, myAsset);
 
             if (form.ShowDialog() == DialogResult.OK)
             {
-                AssetFilter myassetfilter = new AssetFilter(myAsset);
 
-                Filter filter = form.GetFilter;
-                myassetfilter.Name = filter.Name;
-                myassetfilter.PresentationTimeRange = filter.PresentationTimeRange;
-                myassetfilter.Tracks = filter.Tracks;
-                myassetfilter._context = filter._context;
+                FilterCreationInfo filterinfo = null;
                 try
                 {
-                    myassetfilter.Create();
-                    myMainForm.TextBoxLogWriteLine("Asset filter '{0}' has been created.", filter.Name);
+                    filterinfo = form.GetFilterInfo;
+                    myAsset.AssetFilters.Create(filterinfo.Name, filterinfo.Presentationtimerange, filterinfo.Trackconditions);
+                    myMainForm.TextBoxLogWriteLine("Asset filter '{0}' has been created.", filterinfo.Name);
                 }
                 catch (Exception e)
                 {
-                    MessageBox.Show("Error when creating asset filter.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    myMainForm.TextBoxLogWriteLine("Error when creating asset filter '{0}'.", filter.Name, true);
+                    MessageBox.Show("Error when creating asset filter." + Constants.endline + Program.GetErrorMessage(e), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    myMainForm.TextBoxLogWriteLine("Error when creating asset filter '{0}'.", (filterinfo != null && filterinfo.Name != null) ? filterinfo.Name : "unknown name", true);
                     myMainForm.TextBoxLogWriteLine(e);
                 }
                 DisplayAssetFilters();
@@ -1965,7 +2166,7 @@ namespace AMSExplorer
                 filters.ForEach(f => f.Delete());
             }
 
-            catch (Exception e)
+            catch
             {
                 MessageBox.Show("Error when deleting asset filter(s).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
@@ -1983,23 +2184,18 @@ namespace AMSExplorer
             var filters = ReturnSelectedFilters();
             if (filters.Count == 1)
             {
-                AssetFilter sourcefilter = filters.FirstOrDefault();
+                IStreamingAssetFilter sourcefilter = filters.FirstOrDefault();
 
                 string newfiltername = sourcefilter.Name + "Copy";
                 if (Program.InputBox("New name", "Enter the name of the new duplicate filter:", ref newfiltername) == DialogResult.OK)
                 {
-                    AssetFilter copyfilter = new AssetFilter(myAsset);
-                    copyfilter.Name = newfiltername;
-                    copyfilter.PresentationTimeRange = sourcefilter.PresentationTimeRange;
-                    copyfilter.Tracks = sourcefilter.Tracks;
-                    copyfilter._context = sourcefilter._context;
                     try
                     {
-                        copyfilter.Create();
+                        myAsset.AssetFilters.Create(newfiltername, sourcefilter.PresentationTimeRange, sourcefilter.Tracks);
                     }
                     catch (Exception e)
                     {
-                        MessageBox.Show("Error when duplicating asset filter.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        MessageBox.Show("Error when duplicating asset filter." + Constants.endline + Program.GetErrorMessage(e), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     DisplayAssetFilters();
                 }
@@ -2010,8 +2206,8 @@ namespace AMSExplorer
         {
             try
             {
-                string question = "Delete all files?";
-                if (System.Windows.Forms.MessageBox.Show(question, "File deletion", System.Windows.Forms.MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
+                string question = "Delete all files ?";
+                if (System.Windows.Forms.MessageBox.Show(question, "File deletion", System.Windows.Forms.MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
                 {
                     var assetArray = myAsset.AssetFiles.ToArray();
                     for (int i = 0; i < assetArray.Length; i++)
@@ -2085,6 +2281,219 @@ namespace AMSExplorer
         private void deleteAllFilesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             DoDeleteAllFiles();
+        }
+
+        private void buttonEditOnline_Click(object sender, EventArgs e)
+        {
+            DoEditFile();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private async void DoEditFile()
+        {
+            var SelectedAssetFiles = ReturnSelectedAssetFiles();
+
+            if (SelectedAssetFiles.Count == 1 && SelectedAssetFiles.FirstOrDefault() != null)
+            {
+                IAssetFile assetFileToEdit = SelectedAssetFiles.FirstOrDefault();
+
+                if (assetFileToEdit.ContentFileSize > 500 * 1024)
+                {
+                    MessageBox.Show("File is to big to edit it online.");
+                    return;
+                }
+
+                try
+                {
+                    progressBarUpload.Maximum = 100;
+                    progressBarUpload.Visible = true;
+                    string tempPath = System.IO.Path.GetTempPath();
+                    string filePath = Path.Combine(tempPath, assetFileToEdit.Name);
+
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                    await Task.Factory.StartNew(() => ProcessDownloadFileToAsset(assetFileToEdit, filePath));
+
+                    progressBarUpload.Visible = false;
+
+                    StreamReader streamReader = new StreamReader(filePath);
+                    Encoding fileEncoding = streamReader.CurrentEncoding;
+                    string datastring = streamReader.ReadToEnd();
+                    streamReader.Close();
+
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    var editform = new EditorXMLJSON(string.Format("Online edit of '{0}'", assetFileToEdit.Name), datastring, true, false);
+                    if (editform.Display() == DialogResult.OK)
+                    { // OK
+
+                        StreamWriter outfile = new StreamWriter(filePath, false, fileEncoding);
+
+                        outfile.Write(editform.TextData);
+                        outfile.Close();
+
+                        string assetFileName = assetFileToEdit.Name;
+                        bool assetFilePrimary = assetFileToEdit.IsPrimary;
+                        assetFileToEdit.Delete();
+
+                        progressBarUpload.Visible = true;
+                        buttonClose.Enabled = false;
+
+                        await Task.Factory.StartNew(() => ProcessUploadFileToAsset(Path.GetFileName(filePath), filePath, myAsset));
+
+                        if (File.Exists(filePath))
+                        {
+                            File.Delete(filePath);
+                        }
+
+                        if (assetFilePrimary)
+                        {
+                            AssetInfo.SetFileAsPrimary(myAsset, assetFileName);
+                        }
+                        // Refresh the asset.
+                        myAsset = Mainform._context.Assets.Where(a => a.Id == myAsset.Id).FirstOrDefault();
+                        progressBarUpload.Visible = false;
+                        buttonClose.Enabled = true;
+                        ListAssetFiles();
+                    }
+                }
+
+                catch
+                {
+                    MessageBox.Show("Error when accessing/editing asset file.");
+                }
+
+            }
+        }
+
+        private void toolStripMenuItemFilesCopyClipboard_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void buttonSeeClearKey_Click_5(object sender, EventArgs e)
+        {
+
+        }
+
+        private void SeeClearKey(string key)
+        {
+
+
+            var editform = new EditorXMLJSON("Clear key value", key.ToString(), false, false);
+            editform.Display();
+
+        }
+
+        private void dataGridViewKeys_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            var senderGrid = (DataGridView)sender;
+
+            if (e.RowIndex >= 0 && senderGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].GetType() == typeof(DataGridViewButtonCell))
+            {
+
+                //TODO - Button Clicked - to see the key
+                SeeClearKey(senderGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].Tag.ToString());
+            }
+
+        }
+
+        private void dataGridViewAutPolOption_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            var senderGrid = (DataGridView)sender;
+            if (e.RowIndex >= 0 && senderGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].GetType() == typeof(DataGridViewButtonCell))
+            {
+                SeeValueInEditor(senderGrid.Rows[e.RowIndex].Cells[0].Value.ToString(), senderGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].Tag.ToString());
+            }
+        }
+
+        private void SeeValueInEditor(string dataname, string key)
+        {
+            var editform = new EditorXMLJSON(dataname, key, false, false);
+            editform.Display();
+        }
+
+        private void buttonGenerateManifest_Click(object sender, EventArgs e)
+        {
+            DoGenerateManifest();
+
+        }
+
+        private async void DoGenerateManifest()
+        {
+            try
+            {
+                var smildata = Program.LoadAndUpdateManifestTemplate(myAsset);
+
+                var editform = new EditorXMLJSON(string.Format("Online edit of '{0}'", smildata.FileName), smildata.Content, true, false, true,
+                    "Please check carefully the content of the generated manifest as the tool makes guesses !");
+
+                if (editform.Display() == DialogResult.OK)
+                { // OK
+
+                    string tempPath = System.IO.Path.GetTempPath();
+                    string filePath = Path.Combine(tempPath, smildata.FileName);
+
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    StreamWriter outfile = new StreamWriter(filePath, false, Encoding.UTF8);
+                    outfile.Write(editform.TextData);
+                    outfile.Close();
+
+                    progressBarUpload.Visible = true;
+                    buttonClose.Enabled = false;
+
+                    await Task.Factory.StartNew(() => ProcessUploadFileToAsset(Path.GetFileName(filePath), filePath, myAsset));
+
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    // Refresh the asset.
+                    myAsset = Mainform._context.Assets.Where(a => a.Id == myAsset.Id).FirstOrDefault();
+                    AssetInfo.SetFileAsPrimary(myAsset, smildata.FileName);
+                }
+            }
+            catch
+            {
+
+            }
+            progressBarUpload.Visible = false;
+            buttonClose.Enabled = true;
+            ListAssetFiles();
+            BuildLocatorsTree();
+        }
+
+        private void button1_Click_5(object sender, EventArgs e)
+        {
+            DoRemoveAuthPolOption();
+        }
+
+        private void removeAuthorizationPolicyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DoRemoveAuthPol();
+        }
+
+        private void removeOptionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DoRemoveAuthPolOption();
+        }
+
+        private void removeAuthorizationPolicyToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            DoRemoveAuthPol();
+
         }
     }
 }

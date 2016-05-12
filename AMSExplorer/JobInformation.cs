@@ -96,31 +96,52 @@ namespace AMSExplorer
             DGJob.Rows.Add("Priority", MyJob.Priority);
             DGJob.Rows.Add("Overall progress", MyJob.GetOverallProgress());
 
-            if (MyJob.StartTime != null) DGJob.Rows.Add("Start Time", ((DateTime)MyJob.StartTime).ToLocalTime());
-            if (MyJob.EndTime != null) DGJob.Rows.Add("End Time", ((DateTime)MyJob.EndTime).ToLocalTime());
+            if (MyJob.StartTime != null) DGJob.Rows.Add("Start Time", ((DateTime)MyJob.StartTime).ToLocalTime().ToString("G"));
+            if (MyJob.EndTime != null) DGJob.Rows.Add("End Time", ((DateTime)MyJob.EndTime).ToLocalTime().ToString("G"));
 
             if ((MyJob.StartTime != null) && (MyJob.EndTime != null))
             {
                 DGJob.Rows.Add("Job Duration", ((DateTime)MyJob.EndTime).Subtract((DateTime)MyJob.StartTime));
             }
             DGJob.Rows.Add("CPU Duration", MyJob.RunningDuration);
-            DGJob.Rows.Add("Created", ((DateTime)MyJob.Created).ToLocalTime());
-            DGJob.Rows.Add("Last Modified", ((DateTime)MyJob.LastModified).ToLocalTime());
+            DGJob.Rows.Add("Created", ((DateTime)MyJob.Created).ToLocalTime().ToString("G"));
+            DGJob.Rows.Add("Last Modified", ((DateTime)MyJob.LastModified).ToLocalTime().ToString("G"));
             DGJob.Rows.Add("Template Id", MyJob.TemplateId);
 
             string sid = "";
-            if (MyJob.InputMediaAssets.Count() > 1) sid = " #{0}"; else sid = "";
-            for (int i = 0; i < MyJob.InputMediaAssets.Count(); i++)
+
+            try
             {
-                DGJob.Rows.Add("Input asset" + string.Format(sid, i) + " Name", MyJob.InputMediaAssets[i].Name);
-                DGJob.Rows.Add("Input asset" + string.Format(sid, i) + " Id", MyJob.InputMediaAssets[i].Id);
+                var iassets = MyJob.InputMediaAssets; // exception if input asset was deleted
+
+                if (MyJob.InputMediaAssets.Count() > 1) sid = " #{0}"; else sid = "";
+                for (int i = 0; i < MyJob.InputMediaAssets.Count(); i++)
+                {
+                    DGJob.Rows.Add("Input asset" + string.Format(sid, i) + " Name", MyJob.InputMediaAssets[i].Name);
+                    DGJob.Rows.Add("Input asset" + string.Format(sid, i) + " Id", MyJob.InputMediaAssets[i].Id);
+                }
             }
 
-            if (MyJob.OutputMediaAssets.Count() > 1) sid = " #{0}"; else sid = "";
-            for (int i = 0; i < MyJob.OutputMediaAssets.Count(); i++)
+            catch
             {
-                DGJob.Rows.Add("Output asset" + string.Format(sid, i) + " Name", MyJob.OutputMediaAssets[i].Name);
-                DGJob.Rows.Add("Output asset" + string.Format(sid, i) + " Id", MyJob.OutputMediaAssets[i].Id);
+                DGJob.Rows.Add("Input asset(s)", "<error, deleted?>");
+            }
+
+
+            try
+            {
+                var oassets = MyJob.OutputMediaAssets; // exception if output asset was deleted
+
+                if (MyJob.OutputMediaAssets.Count() > 1) sid = " #{0}"; else sid = "";
+                for (int i = 0; i < MyJob.OutputMediaAssets.Count(); i++)
+                {
+                    DGJob.Rows.Add("Output asset" + string.Format(sid, i) + " Name", MyJob.OutputMediaAssets[i].Name);
+                    DGJob.Rows.Add("Output asset" + string.Format(sid, i) + " Id", MyJob.OutputMediaAssets[i].Id);
+                }
+            }
+            catch
+            {
+                DGJob.Rows.Add("Output asset(s)", "<error, deleted?>");
             }
 
 
@@ -134,7 +155,7 @@ namespace AMSExplorer
             }
             else
             {
-                DGJob.Rows.Add("Input/output size", "undefined, task did not finished or one of the assets has been deleted");
+                DGJob.Rows.Add("Input/output size", "undefined, task did not finish or one of the assets has been deleted");
             }
 
             bool btaskinjob = (MyJob.Tasks.Count() > 0);
@@ -173,15 +194,27 @@ namespace AMSExplorer
             DGTasks.Rows.Clear();
 
             DGTasks.Rows.Add("Name", task.Name);
+
+            int i = DGTasks.Rows.Add("Configuration", "");
+            DataGridViewButtonCell btn = new DataGridViewButtonCell();
+            DGTasks.Rows[i].Cells[1] = btn;
+            DGTasks.Rows[i].Cells[1].Value = "See clear value";
+            DGTasks.Rows[i].Cells[1].Tag = task.GetClearConfiguration();
+
+            i = DGTasks.Rows.Add("Body", "");
+            btn = new DataGridViewButtonCell();
+            DGTasks.Rows[i].Cells[1] = btn;
+            DGTasks.Rows[i].Cells[1].Value = "See value";
+            DGTasks.Rows[i].Cells[1].Tag = task.TaskBody;
+
             DGTasks.Rows.Add("Id", task.Id);
             DGTasks.Rows.Add("State", task.State);
             DGTasks.Rows.Add("Priority", task.Priority);
-            if (task.StartTime != null) DGTasks.Rows.Add("Start Time", ((DateTime)task.StartTime).ToLocalTime());
-            if (task.EndTime != null) DGTasks.Rows.Add("End Time", ((DateTime)task.EndTime).ToLocalTime());
+            if (task.StartTime != null) DGTasks.Rows.Add("Start Time", ((DateTime)task.StartTime).ToLocalTime().ToString("G"));
+            if (task.EndTime != null) DGTasks.Rows.Add("End Time", ((DateTime)task.EndTime).ToLocalTime().ToString("G"));
             DGTasks.Rows.Add("Progress", task.Progress);
             DGTasks.Rows.Add("Duration", task.RunningDuration);
             DGTasks.Rows.Add("Perf Message", task.PerfMessage);
-            DGTasks.Rows.Add("Configuration", task.Configuration);
             DGTasks.Rows.Add("Encryption Key Id", task.EncryptionKeyId);
             DGTasks.Rows.Add("Encryption Scheme", task.EncryptionScheme);
             DGTasks.Rows.Add("Encryption Version", task.EncryptionVersion);
@@ -191,24 +224,36 @@ namespace AMSExplorer
             DGTasks.Rows.Add("Mediaprocessor Id", task.MediaProcessorId);
             if (processor != null) DGTasks.Rows.Add("Mediaprocessor Name", processor.Name);
 
-
-            DGTasks.Rows.Add("Task Body", task.TaskBody);
             DGTasks.Rows.Add("Options", task.Options);
             DGTasks.Rows.Add("Initialization Vector", task.InitializationVector);
 
             string sid = "";
-            if (task.InputAssets.Count() > 1) sid = " #{0}"; else sid = "";
-            for (int i = 0; i < task.InputAssets.Count(); i++)
+            try
             {
-                DGTasks.Rows.Add("Input asset" + string.Format(sid, i + 1) + " Name", task.InputAssets[i].Name);
-                DGTasks.Rows.Add("Input asset" + string.Format(sid, i + 1) + " Id", task.InputAssets[i].Id);
+                if (task.InputAssets.Count() > 1) sid = " #{0}"; else sid = "";
+                for (int j = 0; j < task.InputAssets.Count(); j++)
+                {
+                    DGTasks.Rows.Add("Input asset" + string.Format(sid, j + 1) + " Name", task.InputAssets[j].Name);
+                    DGTasks.Rows.Add("Input asset" + string.Format(sid, j + 1) + " Id", task.InputAssets[j].Id);
+                }
+            }
+            catch
+            {
+                DGTasks.Rows.Add("Input asset(s)", "<error, deleted?>");
             }
 
-            if (task.OutputAssets.Count() > 1) sid = " #{0}"; else sid = "";
-            for (int i = 0; i < task.OutputAssets.Count(); i++)
+            try
             {
-                DGTasks.Rows.Add("Output asset" + string.Format(sid, i + 1) + " Name", task.OutputAssets[i].Name);
-                DGTasks.Rows.Add("Output asset" + string.Format(sid, i + 1) + " Id", task.OutputAssets[i].Id);
+                if (task.OutputAssets.Count() > 1) sid = " #{0}"; else sid = "";
+                for (int j = 0; j < task.OutputAssets.Count(); j++)
+                {
+                    DGTasks.Rows.Add("Output asset" + string.Format(sid, j + 1) + " Name", task.OutputAssets[j].Name);
+                    DGTasks.Rows.Add("Output asset" + string.Format(sid, j + 1) + " Id", task.OutputAssets[j].Id);
+                }
+            }
+            catch
+            {
+                DGTasks.Rows.Add("Output asset(s)", "<error, deleted?>");
             }
 
             TaskSizeAndPrice taskSizePrice = JobInfo.CalculateTaskSizeAndPrice(task, _context);
@@ -221,16 +266,28 @@ namespace AMSExplorer
             }
             else
             {
-                DGTasks.Rows.Add("Input/output size", "undefined, task did not finished or one of the assets has been deleted");
-
+                DGTasks.Rows.Add("Input/output size", "undefined, task did not finish or one of the assets has been deleted");
             }
-           
-            for (int i = 0; i < task.ErrorDetails.Count(); i++)
+
+            for (int j = 0; j < task.ErrorDetails.Count(); j++)
             {
-                DGTasks.Rows.Add("Error", task.ErrorDetails[i].Code + ": " + task.ErrorDetails[i].Message);
-
+                DGTasks.Rows.Add("Error", task.ErrorDetails[j].Code + ": " + task.ErrorDetails[j].Message);
             }
-            textBoxConfiguration.Text = task.GetClearConfiguration();
+        }
+
+        private void DGTasks_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            var senderGrid = (DataGridView)sender;
+            if (e.RowIndex >= 0 && senderGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].GetType() == typeof(DataGridViewButtonCell))
+            {
+                SeeValueInEditor(senderGrid.Rows[e.RowIndex].Cells[0].Value.ToString(), senderGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].Tag.ToString());
+            }
+        }
+
+        private void SeeValueInEditor(string dataname, string key)
+        {
+            var editform = new EditorXMLJSON(dataname, key, false, false);
+            editform.Display();
         }
     }
 }

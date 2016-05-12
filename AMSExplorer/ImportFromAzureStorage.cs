@@ -63,6 +63,7 @@ namespace AMSExplorer
                 radioButtonStorageDefault.Checked = value;
             }
         }
+
         public string ImportLabelDefaultStorageName
         {
             get
@@ -74,6 +75,7 @@ namespace AMSExplorer
                 labelDefaultStorage.Text = value;
             }
         }
+
         public string ImportNewAssetName
         {
             get
@@ -101,6 +103,7 @@ namespace AMSExplorer
         {
             set { labelSelectedAssetWarning.Text = value; }
         }
+
         public bool ImportOptionToCopyFilesToExistingAsset
         {
             set
@@ -109,6 +112,7 @@ namespace AMSExplorer
                 if (!value) labelExistingAssetName.Text = string.Empty;
             }
         }
+
         public string ImporOtherStorageName
         {
             get
@@ -120,6 +124,7 @@ namespace AMSExplorer
                 textBoxStorageName.Text = value;
             }
         }
+
         public string ImportOtherStorageKey
         {
             get
@@ -131,6 +136,7 @@ namespace AMSExplorer
                 textBoxStorageKey.Text = value;
             }
         }
+
         public bool ImportCreateNewAsset
         {
             get
@@ -143,6 +149,13 @@ namespace AMSExplorer
             }
         }
 
+        public bool CreateOneAssetPerFile
+        {
+            get
+            {
+                return checkBoxOneAssetPerFile.Checked;
+            }
+        }
 
 
         public ImportFromAzureStorage(CloudMediaContext contextUploadArg, string MediaServicesStorageAccountKeyArg, string StorageSuffix = null)
@@ -214,7 +227,7 @@ namespace AMSExplorer
                     if (BlobContainer.Name.Contains(textBoxSearch.Text))
                     {
                         ListViewItem item = new ListViewItem(Path.GetFileName(BlobContainer.Name), 0);
-                        item.SubItems.Add(BlobContainer.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString());
+                        item.SubItems.Add(BlobContainer.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString("G"));
                         listViewBlobs.Items.Add(item);
                     }
                 }
@@ -251,7 +264,7 @@ namespace AMSExplorer
                     CloudBlockBlob cloudBlockBlob = b as CloudBlockBlob;
                     string lastModified = "";
                     ListViewItem item = new ListViewItem(Path.GetFileName(b.Uri.LocalPath), 0);
-                    lastModified = cloudBlockBlob.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString();
+                    lastModified = cloudBlockBlob.Properties.LastModified.Value.UtcDateTime.ToLocalTime().ToString("G");
                     item.SubItems.Add(lastModified);
                     item.SubItems.Add(AssetInfo.FormatByteSize(cloudBlockBlob.Properties.Length));
                     // Place a check mark next to the item.
@@ -302,6 +315,7 @@ namespace AMSExplorer
         {
             this.createNewAsset = radioButtonNewAsset.Checked;
             textBoxNewAssetName.Enabled = radioButtonNewAsset.Checked;
+            EnableCheckBoxMultipleAssets();
         }
 
         private void radioButtonOtherStorage_CheckedChanged(object sender, EventArgs e)
@@ -332,6 +346,12 @@ namespace AMSExplorer
         private void listViewFiles_SelectedIndexChanged(object sender, EventArgs e)
         {
             buttonUpload.Enabled = !(listViewFiles.SelectedItems.Count == 0);
+            EnableCheckBoxMultipleAssets();
+        }
+
+        private void EnableCheckBoxMultipleAssets()
+        {
+            checkBoxOneAssetPerFile.Enabled = (listViewFiles.SelectedItems.Count > 1) & radioButtonNewAsset.Checked;
         }
 
         private void listViewBlobs_SelectedIndexChanged(object sender, EventArgs e)
@@ -346,11 +366,9 @@ namespace AMSExplorer
         }
 
 
-
         private void textBoxSearch_TextChanged(object sender, EventArgs e)
         {
             DoListBlobs(false);
         }
-
     }
 }

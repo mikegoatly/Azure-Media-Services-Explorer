@@ -24,6 +24,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.WindowsAzure.MediaServices.Client;
+using System.Text.RegularExpressions;
 
 namespace AMSExplorer
 {
@@ -49,11 +50,10 @@ namespace AMSExplorer
         {
             get
             {
-                return new TimeSpan((int)numericUpDownArchiveDays.Value, (int)numericUpDownArchiveHours.Value, (int)numericUpDownArchiveMinutes.Value, 0); ;
+                return new TimeSpan((int)numericUpDownArchiveHours.Value, (int)numericUpDownArchiveMinutes.Value, 0); ;
             }
             set
             {
-                numericUpDownArchiveDays.Value = value.Days;
                 numericUpDownArchiveHours.Value = value.Hours;
                 numericUpDownArchiveMinutes.Value = value.Minutes;
             }
@@ -84,16 +84,33 @@ namespace AMSExplorer
             }
         }
 
+
         public string ReplicaLocatorID
         {
             get { return labelLocatorID.Text; }
 
         }
 
-        public string ReplicaManifestName
+        public string ForceManifestName
         {
-            get { return labelManifestFile.Text; }
-
+            get
+            {
+                if (checkBoxReplica.Checked)
+                {
+                    return labelManifestFile.Text;
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(textBoxManifestName.Text))
+                    {
+                        return null;
+                    }
+                    else
+                    {
+                        return textBoxManifestName.Text.Trim();
+                    }
+                }
+            }
         }
 
         public string AssetName
@@ -141,7 +158,7 @@ namespace AMSExplorer
         private void CreateLocator_Load(object sender, EventArgs e)
         {
             this.Text = string.Format(this.Text, ChannelName);
-            checkBoxCreateLocator.Text = string.Format(checkBoxCreateLocator.Text, Properties.Settings.Default.DefaultLocatorDurationDays);
+            checkBoxCreateLocator.Text = string.Format(checkBoxCreateLocator.Text, Properties.Settings.Default.DefaultLocatorDurationDaysNew);
             labelManifestFile.Text = string.Empty;
             labelLocatorID.Text = string.Empty;
             labelURLFileNameWarning.Text = string.Empty;
@@ -151,11 +168,13 @@ namespace AMSExplorer
                 comboBoxStorage.Items.Add(new Item(string.Format("{0} {1}", storage.Name, storage.IsDefault ? "(default)" : ""), storage.Name));
                 if (storage.Name == _context.DefaultStorageAccount.Name) comboBoxStorage.SelectedIndex = comboBoxStorage.Items.Count - 1;
             }
+            checkProgramName();
         }
 
         private void checkBoxReplica_CheckedChanged(object sender, EventArgs e)
         {
             textBoxProgramSourceURL.Enabled = checkBoxReplica.Checked;
+            textBoxManifestName.Enabled = checkBoxReplica.Checked;
             if (checkBoxReplica.Checked)
             {
                 checkBoxCreateLocator.Checked = true;
@@ -197,6 +216,31 @@ namespace AMSExplorer
                 labelManifestFile.Text = filename;
                 labelLocatorID.Text = locId;
             }
+        }
+
+        internal static bool IsProgramNameValid(string name)
+        {
+            Regex reg = new Regex(@"^[a-zA-Z0-9]([a-zA-Z0-9- ]{0,254}[a-zA-Z0-9])?$", RegexOptions.Compiled);
+            return (reg.IsMatch(name));
+        }
+
+        private void checkProgramName()
+        {
+            TextBox tb = textboxprogramname;
+
+            if (!IsProgramNameValid(tb.Text))
+            {
+                errorProvider1.SetError(tb, "Program name is not valid");
+            }
+            else
+            {
+                errorProvider1.SetError(tb, String.Empty);
+            }
+        }
+
+        private void textboxprogramname_TextChanged(object sender, EventArgs e)
+        {
+            checkProgramName();
         }
     }
 }

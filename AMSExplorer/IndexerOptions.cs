@@ -53,13 +53,13 @@ namespace AMSExplorer
                 checkBoxTTML.Checked = value.TTML;
                 checkBoxWEBVTT.Checked = value.WebVTT;
             }
-
         }
 
-        public IndexerOptions()
+        public IndexerOptions(bool IndexerV2 = false)
         {
             InitializeComponent();
             this.Icon = Bitmaps.Azure_Explorer_ico;
+            if (IndexerV2) groupBoxOther.Visible = false;
         }
 
 

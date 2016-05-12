@@ -26,6 +26,7 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using Microsoft.WindowsAzure.MediaServices.Client;
 using System.Xml.Linq;
+using System.Security;
 
 
 namespace AMSExplorer
@@ -35,6 +36,7 @@ namespace AMSExplorer
         private CloudMediaContext _context;
         private IndexerOptions formOptions = new IndexerOptions();
         private IndexerOptionsVar optionsVar = new IndexerOptionsVar() { AIB = true, Keywords = true, SAMI = true, TTML = true, WebVTT = true };
+        private string _version;
 
         public IndexerOptionsVar IndexerGenerationOptions
         {
@@ -100,8 +102,6 @@ namespace AMSExplorer
             }
         }
 
-
-
         public string IndexerTitle
         {
             get
@@ -117,7 +117,7 @@ namespace AMSExplorer
         {
             get
             {
-                return textBoxDescription.Text;
+                return textBoxDescription.Text.Replace(Constants.endline, " ");
             }
             set
             {
@@ -125,33 +125,21 @@ namespace AMSExplorer
             }
         }
 
-
-
-        public string IndexerProcessorName
-        {
-            get
-            {
-                return processorlabel.Text;
-            }
-            set
-            {
-                processorlabel.Text = value;
-            }
-        }
-
-        public Indexer(CloudMediaContext context)
+        public Indexer(CloudMediaContext context, string version)
         {
             InitializeComponent();
             this.Icon = Bitmaps.Azure_Explorer_ico;
             _context = context;
+            _version = version;
 
             buttonJobOptions.Initialize(_context);
         }
 
-
         private void Indexer_Load(object sender, EventArgs e)
         {
             comboBoxLanguage.SelectedIndex = 0;
+            labelProcessorVersion.Text = string.Format(labelProcessorVersion.Text, _version);
+            moreinfoprofilelink.Links.Add(new LinkLabel.Link(0, moreinfoprofilelink.Text.Length, Constants.LinkMoreInfoIndexer));
         }
 
         private void buttonGenOptions_Click(object sender, EventArgs e)
@@ -163,12 +151,16 @@ namespace AMSExplorer
             }
         }
 
-        public static string LoadAndUpdateIndexerConfiguration(string xmlFileName, string AssetTitle, string AssetDescription, string Language, IndexerOptionsVar optionsVar)
+        public static string LoadAndUpdateIndexerConfiguration(string xmlFileName, string AssetTitle, string AssetDescription, string Language, IndexerOptionsVar optionsVar, string proposedfile = null)
         {
             // Prepare the encryption task template
             XDocument doc = XDocument.Load(xmlFileName);
 
             var inputxml = doc.Element("configuration").Element("input");
+            if (proposedfile != null)
+            {
+                inputxml.Add(new XAttribute("name", proposedfile));
+            }
             if (!string.IsNullOrEmpty(AssetTitle)) inputxml.Add(new XElement("metadata", new XAttribute("key", "title"), new XAttribute("value", AssetTitle)));
             if (!string.IsNullOrEmpty(AssetDescription)) inputxml.Add(new XElement("metadata", new XAttribute("key", "description"), new XAttribute("value", AssetDescription)));
 
@@ -183,6 +175,12 @@ namespace AMSExplorer
             settings.Add(new XElement("add", new XAttribute("key", "CaptionFormats"), new XAttribute("value", cformats)));
 
             return doc.Declaration.ToString() + doc.ToString();
+        }
+
+        private void moreinfoprofilelink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            // Send the URL to the operating system.
+            Process.Start(e.Link.LinkData as string);
         }
     }
 }

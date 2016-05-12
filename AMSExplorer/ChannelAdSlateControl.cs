@@ -81,6 +81,8 @@ namespace AMSExplorer
             labelChannelName.Text += MyChannel.Name;
             listViewJPG1.LoadJPGs(MyContext, null, MyChannel.Slate);
             textBoxCueId.Text = GenerateRandomCueId();
+            moreinfoLiveEncodingProfilelink.Links.Add(new LinkLabel.Link(0, moreinfoLiveEncodingProfilelink.Text.Length, Constants.LinkMoreInfoLiveEncoding));
+
         }
 
         private string GenerateRandomCueId()
@@ -98,6 +100,10 @@ namespace AMSExplorer
         private void ChannelAdSlateControl_FormClosed(object sender, FormClosedEventArgs e)
         {
             ListLocators.ToList().ForEach(entry => DeleteSASLocator(entry.Value));
+
+            // let's sure we dispose the webbrowser control
+            webBrowserPreview.Url = null;
+            webBrowserPreview.Dispose();
         }
 
 
@@ -172,7 +178,7 @@ namespace AMSExplorer
                                                       );
                 AssetInfo.SetFileAsPrimary(asset, Path.GetFileName(safeFileName));
             }
-            catch (Exception e)
+            catch
             {
                 asset = null;
             }
@@ -327,13 +333,13 @@ namespace AMSExplorer
             {
                 if (MyChannel.State == ChannelState.Running && MyChannel.Preview.Endpoints.FirstOrDefault().Url.AbsoluteUri != null)
                 {
-                    string myurl = AssetInfo.DoPlayBackWithBestStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayerFrame, Urlstr: MyChannel.Preview.Endpoints.FirstOrDefault().Url.ToString(), DoNotRewriteURL: true, context: MyContext, formatamp: AzureMediaPlayerFormats.Smooth, technology: AzureMediaPlayerTechnologies.Silverlight, launchbrowser: false);
-                    webBrowserPreview2.Url = new Uri(myurl);
+                    string myurl = AssetInfo.DoPlayBackWithStreamingEndpoint(typeplayer: PlayerType.AzureMediaPlayerFrame, Urlstr: MyChannel.Preview.Endpoints.FirstOrDefault().Url.ToString(), DoNotRewriteURL: true, context: MyContext, formatamp: AzureMediaPlayerFormats.Smooth, technology: AzureMediaPlayerTechnologies.Silverlight, launchbrowser: false, mainForm: MyMainForm);
+                    webBrowserPreview.Url = new Uri(myurl);
                 }
             }
             else
             {
-                webBrowserPreview2.Url = null;
+                webBrowserPreview.Url = null;
             }
         }
 
@@ -440,32 +446,39 @@ namespace AMSExplorer
             this.Close();
         }
 
-        private void textBoxCueId_Validating(object sender, CancelEventArgs e)
+        private void checkBoxPreviewSlate_CheckedChanged(object sender, EventArgs e)
         {
-            bool Error = false;
-            TextBox tb = (TextBox)sender;
+            pictureBoxPreviewSlate.Visible = labelSlatePreviewInfo.Visible = checkBoxPreviewSlate.Checked;
+            if (!checkBoxPreviewSlate.Checked)
+            {
+                pictureBoxPreviewSlate.Image = null;
+                labelSlatePreviewInfo.Text = "";
 
-            try
-            {
-                Convert.ToInt32(tb.Text);
-
-            }
-            catch
-            {
-                Error = true;
-            }
-
-            if (Error)
-            {
-                errorProvider1.SetError(tb, "Advertising Cue Id is not valid");
-            }
-            else
-            {
-                errorProvider1.SetError(tb, String.Empty);
             }
         }
 
-        private void textBoxADSignalDuration_Validating(object sender, CancelEventArgs e)
+        private void buttongenerateContentKey_Click(object sender, EventArgs e)
+        {
+            textBoxCueId.Text = GenerateRandomCueId();
+        }
+
+        private void splitContainer2_Panel1_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void webBrowserPreview2_DocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
+        {
+
+        }
+
+        private void moreinfoLiveEncodingProfilelink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            // Send the URL to the operating system.
+            Process.Start(e.Link.LinkData as string);
+        }
+
+        private void textBoxADSignalDuration_TextChanged(object sender, EventArgs e)
         {
             bool Error = false;
             TextBox tb = (TextBox)sender;
@@ -489,25 +502,29 @@ namespace AMSExplorer
             }
         }
 
-        private void checkBoxPreviewSlate_CheckedChanged(object sender, EventArgs e)
+        private void textBoxCueId_TextChanged(object sender, EventArgs e)
         {
-            pictureBoxPreviewSlate.Visible = labelSlatePreviewInfo.Visible = checkBoxPreviewSlate.Checked;
-            if (!checkBoxPreviewSlate.Checked)
+            bool Error = false;
+            TextBox tb = (TextBox)sender;
+
+            try
             {
-                pictureBoxPreviewSlate.Image = null;
-                labelSlatePreviewInfo.Text = "";
+                Convert.ToInt32(tb.Text);
 
             }
-        }
+            catch
+            {
+                Error = true;
+            }
 
-        private void buttongenerateContentKey_Click(object sender, EventArgs e)
-        {
-            textBoxCueId.Text = GenerateRandomCueId();
-        }
-
-        private void splitContainer2_Panel1_Paint(object sender, PaintEventArgs e)
-        {
-
+            if (Error)
+            {
+                errorProvider1.SetError(tb, "Advertising Cue Id is not valid");
+            }
+            else
+            {
+                errorProvider1.SetError(tb, String.Empty);
+            }
         }
     }
 }

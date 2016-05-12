@@ -39,7 +39,9 @@ namespace AMSExplorer
         private void buttonOk_Click(object sender, EventArgs e)
         {
             Properties.Settings.Default.DisplayAssetIDinGrid = checkBoxDisplayAssetID.Checked;
+            Properties.Settings.Default.DisplayAssetAltIDinGrid= checkBoxDisplayAssetAltId.Checked;
             Properties.Settings.Default.DisplayAssetStorageinGrid = checkBoxDisplayAssetStorage.Checked;
+            Properties.Settings.Default.DisplayIngestManifestIDinGrid = checkBoxDisplayBulkContId.Checked;
             Properties.Settings.Default.DisplayJobIDinGrid = checkBoxDisplayJobID.Checked;
             Properties.Settings.Default.DisplayLiveChannelIDinGrid = checkBoxDisplayChannelID.Checked;
             Properties.Settings.Default.DisplayLiveProgramIDinGrid = checkBoxDisplayProgramID.Checked;
@@ -56,12 +58,11 @@ namespace AMSExplorer
             Properties.Settings.Default.CustomPlayerEnabled = checkBoxEnableCustomPlayer.Checked;
 
             Properties.Settings.Default.DefaultJobPriority = (int)numericUpDownPriority.Value;
-            Properties.Settings.Default.DefaultLocatorDurationDays = (int)numericUpDownLocatorDuration.Value;
+            Properties.Settings.Default.DefaultLocatorDurationDaysNew = (int)numericUpDownLocatorDuration.Value;
             Properties.Settings.Default.DefaultTokenDuration = (int)numericUpDownTokenDuration.Value;
-            Properties.Settings.Default.AMEPrice = numericUpDownAMEPrice.Value;
-            Properties.Settings.Default.AMEPremiumWorkflowPreviewPrice = numericUpDownAMEPremiumWorkflowPrice.Value;
-            Properties.Settings.Default.LegacyEncodingPrice = numericUpDownLegacyEncodingPrice.Value;
-            Properties.Settings.Default.IndexingPrice = numericUpDownIndexingPrice.Value;
+            Properties.Settings.Default.AMEPrice = numericUpDownMESPrice.Value;
+            Properties.Settings.Default.MEPremiumWorkflowPrice = numericUpDownPremiumWorkflowPrice.Value;
+            Properties.Settings.Default.IndexingPricePerMin = numericUpDownIndexingPrice.Value;
             Properties.Settings.Default.Currency = textBoxCurrency.Text;
 
             Properties.Settings.Default.ffmpegPath = textBoxffmpegPath.Text;
@@ -74,7 +75,9 @@ namespace AMSExplorer
         private void buttonReset_Click(object sender, EventArgs e)
         {
             checkBoxDisplayAssetID.Checked = false;
+            checkBoxDisplayAssetAltId.Checked = false;
             checkBoxDisplayAssetStorage.Checked = false;
+            checkBoxDisplayBulkContId.Checked = false;
             checkBoxDisplayJobID.Checked = false;
             checkBoxDisplayChannelID.Checked = false;
             checkBoxDisplayOriginID.Checked = false;
@@ -90,17 +93,16 @@ namespace AMSExplorer
             if (indexc == -1) indexc = 1; // not found!
             comboBoxNbItems.SelectedIndex = indexc;
 
-            textBoxCustomPlayer.Text = Constants.AMSPlayer + Constants.NameconvManifestURL;
+            textBoxCustomPlayer.Text = string.Format(Constants.PlayerAMPinOptions, Constants.NameconvManifestURL);
             checkBoxEnableCustomPlayer.Checked = false;
 
             numericUpDownPriority.Value = 10;
             textBoxCurrency.Text = "$";
-            numericUpDownLocatorDuration.Value = 365;
+            numericUpDownLocatorDuration.Value = 3650;
             numericUpDownTokenDuration.Value = 60;
-            numericUpDownAMEPrice.Value = ((decimal)1.99);
-            numericUpDownAMEPremiumWorkflowPrice.Value = ((decimal)1.99);
-            numericUpDownLegacyEncodingPrice.Value = ((decimal)1.39);
-            numericUpDownIndexingPrice.Value = ((decimal)10);
+            numericUpDownMESPrice.Value = ((decimal)1.99);
+            numericUpDownPremiumWorkflowPrice.Value = ((decimal)3.99);
+            numericUpDownIndexingPrice.Value = ((decimal)0.05);
 
             textBoxffmpegPath.Text = @"%programfiles32%\ffmpeg\bin";
             textBoxVLCPath.Text = @"%programfiles32%\VideoLAN\VLC";
@@ -109,19 +111,24 @@ namespace AMSExplorer
             Properties.Settings.Default.AMEStandardPresetXMLFilesCurrentFolder = Application.StartupPath + Constants.PathAMEStdFiles; // we reset the XML files folders
             Properties.Settings.Default.PremiumWorkflowPresetXMLFilesCurrentFolder = Application.StartupPath + Constants.PathPremiumWorkflowFiles;
             Properties.Settings.Default.DefaultSlateCurrentFolder = Application.StartupPath + Constants.PathDefaultSlateJPG;
-      
+
+            Properties.Settings.Default.DynEncTokenIssuer = "http://testacs";
+            Properties.Settings.Default.DynEncTokenAudience = "urn:test";
+
             Program.SaveAndProtectUserConfig();
         }
 
         private void options_Load(object sender, EventArgs e)
         {
-            comboBoxNbItems.Items.AddRange(new string[] { "25", "50", "75", "100" });
+            comboBoxNbItems.Items.AddRange(new string[] { "25", "50", "75", "100", "150" });
             int indexc = comboBoxNbItems.Items.IndexOf(Properties.Settings.Default.NbItemsDisplayedInGrid.ToString());
             if (indexc == -1) indexc = 1; // not found!
             comboBoxNbItems.SelectedIndex = indexc;
 
             checkBoxDisplayAssetID.Checked = Properties.Settings.Default.DisplayAssetIDinGrid;
+            checkBoxDisplayAssetAltId.Checked = Properties.Settings.Default.DisplayAssetAltIDinGrid;
             checkBoxDisplayAssetStorage.Checked = Properties.Settings.Default.DisplayAssetStorageinGrid;
+            checkBoxDisplayBulkContId.Checked = Properties.Settings.Default.DisplayIngestManifestIDinGrid;
             checkBoxDisplayJobID.Checked = Properties.Settings.Default.DisplayJobIDinGrid;
             checkBoxDisplayChannelID.Checked = Properties.Settings.Default.DisplayLiveChannelIDinGrid;
             checkBoxDisplayProgramID.Checked = Properties.Settings.Default.DisplayLiveProgramIDinGrid;
@@ -138,14 +145,13 @@ namespace AMSExplorer
             textBoxCustomPlayer.Enabled = checkBoxEnableCustomPlayer.Checked;
 
             numericUpDownPriority.Value = Properties.Settings.Default.DefaultJobPriority;
-            numericUpDownLocatorDuration.Value = Properties.Settings.Default.DefaultLocatorDurationDays;
+            numericUpDownLocatorDuration.Value = Properties.Settings.Default.DefaultLocatorDurationDaysNew;
             numericUpDownTokenDuration.Value = Properties.Settings.Default.DefaultTokenDuration;
 
             textBoxCurrency.Text = Properties.Settings.Default.Currency;
-            numericUpDownAMEPrice.Value = Properties.Settings.Default.AMEPrice;
-            numericUpDownAMEPremiumWorkflowPrice.Value = Properties.Settings.Default.AMEPremiumWorkflowPreviewPrice;
-            numericUpDownLegacyEncodingPrice.Value = Properties.Settings.Default.LegacyEncodingPrice;
-            numericUpDownIndexingPrice.Value = Properties.Settings.Default.IndexingPrice;
+            numericUpDownMESPrice.Value = Properties.Settings.Default.AMEPrice;
+            numericUpDownPremiumWorkflowPrice.Value = Properties.Settings.Default.MEPremiumWorkflowPrice;
+            numericUpDownIndexingPrice.Value = Properties.Settings.Default.IndexingPricePerMin;
 
             textBoxffmpegPath.Text = Properties.Settings.Default.ffmpegPath;
             textBoxVLCPath.Text = Properties.Settings.Default.VLCPath;
